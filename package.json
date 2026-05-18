@@ -1,0 +1,39 @@
+{
+  "name": "pi-wingman",
+  "version": "0.1.0",
+  "description": "Standalone Wingman reviewer extension for Pi",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    }
+  },
+  "types": "./index.ts",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "wingman",
+    "review",
+    "second-opinion"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "mkdir -p node_modules/@earendil-works node_modules/@types && ln -sfn /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent node_modules/@earendil-works/pi-coding-agent && ln -sfn /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai node_modules/@earendil-works/pi-ai && ln -sfn /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui node_modules/@earendil-works/pi-tui && ln -sfn /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/typebox node_modules/typebox && ln -sfn /Users/damjan/development/projects/mcc/node_modules/@types/node node_modules/@types/node && node --experimental-strip-types --test tests/*.test.ts; status=$?; rm -rf node_modules; exit $status"
+  }
+}

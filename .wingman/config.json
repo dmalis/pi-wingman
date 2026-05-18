@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "exclude": "same-provider",
+  "defaultReviewers": "all-eligible",
+  "maxRounds": 3,
+  "maxParallelReviewers": 4,
+  "logging": {
+    "enabled": false,
+    "raw": false
+  },
+  "reviewers": [
+    {
+      "name": "opus-4-6",
+      "provider": "anthropic",
+      "model": "claude-opus-4-6",
+      "thinking": "high"
+    },
+    {
+      "name": "gemini-3-1-pro-preview",
+      "provider": "google",
+      "model": "gemini-3.1-pro-preview",
+      "thinking": "high"
+    }
+  ]
+}
