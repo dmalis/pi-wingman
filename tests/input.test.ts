@@ -22,10 +22,12 @@ test("natural routing ignores unknown reviewer names", () => {
 	assert.equal(parseNaturalWingmanRequest("audit with random this plan", hints), undefined);
 });
 
-test("natural routing handles wingman and negation", () => {
+test("natural routing handles wingman as product name, not reviewer alias", () => {
 	const hints = reviewerHintsFromConfig(reviewers);
 	assert.equal(parseNaturalWingmanRequest("ask wingman find consensus", hints)?.request, "find consensus");
 	assert.equal(parseNaturalWingmanRequest("ask wingman find consensus", hints)?.reviewerHint, undefined);
+	assert.deepEqual(parseNaturalWingmanRequest("audit with wingman", hints), { request: "audit with wingman" });
+	assert.deepEqual(parseNaturalWingmanRequest("audit with wingman this plan", hints), { request: "this plan" });
 	assert.equal(parseNaturalWingmanRequest("do not ask wingman about this", hints), undefined);
 });
 
@@ -34,4 +36,5 @@ test("tool instruction includes synthesis guidance", () => {
 	assert.match(text, /Call the `wingman` tool/);
 	assert.match(text, /reviewerHint: codex/);
 	assert.match(text, /synthesize/);
+	assert.match(text, /stop and wait/i);
 });

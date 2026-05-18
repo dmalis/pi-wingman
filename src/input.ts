@@ -41,8 +41,9 @@ export function parseNaturalWingmanRequest(text: string, knownReviewerHints?: st
 	const auditWith = trimmed.match(/^\s*(?:please\s+)?(?:audit|review|check|sanity[-\s]*check)\s+with\s+([a-z0-9._/-]+)\b\s*:?-?\s*(.*)$/i);
 	if (auditWith) {
 		const hint = auditWith[1].toLowerCase();
-		if (!hintKnown(hint, hints)) return undefined;
 		const rest = auditWith[2]?.trim();
+		if (hint === "wingman") return { request: rest || trimmed };
+		if (!hintKnown(hint, hints)) return undefined;
 		return { reviewerHint: hint, request: rest ? `${hint} ${rest}` : `audit with ${hint}` };
 	}
 
@@ -69,6 +70,6 @@ export function buildWingmanToolInstruction(parsed: ParsedWingmanRequest): strin
 		`- request: ${parsed.request}`,
 		parsed.reviewerHint ? `- reviewerHint: ${parsed.reviewerHint}` : undefined,
 		"Do not answer the review yourself before calling the tool.",
-		"After Wingman returns, synthesize the result: what you accept, what you reject, and what concrete next action follows.",
+		"After Wingman returns, synthesize the result: what you accept, what you reject, and what concrete next action follows. Then stop and wait for user confirmation before modifying files, updating plans, fixing, or continuing.",
 	].filter((line): line is string => Boolean(line)).join("\n");
 }
