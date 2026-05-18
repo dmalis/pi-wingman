@@ -25,9 +25,9 @@ export async function showRunPreflight(ctx: { hasUI?: boolean; ui: any }, input:
 					refresh();
 					return;
 				}
-				if (data === "a") { for (const reviewer of input.reviewers) selected.add(reviewer.key); refresh(); return; }
-				if (data === "n") { selected.clear(); refresh(); return; }
-				if (data === "e") { done("edit"); return; }
+				if (data === "a" || data === "A") { for (const reviewer of input.reviewers) selected.add(reviewer.key); refresh(); return; }
+				if (data === "n" || data === "N") { selected.clear(); refresh(); return; }
+				if (data === "e" || data === "E") { done("edit"); return; }
 			}
 			function render(width: number): string[] {
 				if (cachedLines) return cachedLines;

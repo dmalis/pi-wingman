@@ -50,6 +50,7 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 		let cachedLines: string[] | undefined;
 		let editingKey: string | undefined;
 		let editBuffer = "";
+		let searchMode = false;
 		let message = "";
 
 		function visible() {
@@ -109,6 +110,13 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 				if (isPrintable(data)) { editBuffer = sanitizeReviewerName(editBuffer + data); refresh(); return; }
 				return;
 			}
+			if (searchMode) {
+				if (matchesKey(data, Key.escape)) { searchMode = false; if (query) query = ""; refresh(); return; }
+				if (matchesKey(data, Key.enter)) { searchMode = false; refresh(); return; }
+				if (matchesKey(data, Key.backspace)) { query = query.slice(0, -1); refresh(); return; }
+				if (isPrintable(data)) { query += data; refresh(); return; }
+				return;
+			}
 			if (matchesKey(data, Key.escape)) {
 				if (query) { query = ""; refresh(); return; }
 				done(null);
@@ -125,17 +133,16 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 			}
 			if (matchesKey(data, Key.space)) { toggle(items[index]); return; }
 			if (matchesKey(data, Key.backspace)) { query = query.slice(0, -1); refresh(); return; }
-			if (data === "a") { for (const item of items) selected.add(modelKey(item.provider, item.model)); refresh(); return; }
-			if (data === "n") { for (const item of items) selected.delete(modelKey(item.provider, item.model)); refresh(); return; }
-			if (data === "e") { beginAliasEdit(items[index]); return; }
-			if (data === "p") { exclude = exclude === "same-provider" ? "same-model" : "same-provider"; refresh(); return; }
-			if (data === "d") { defaultReviewers = defaultReviewers === "all-eligible" ? "ask" : "all-eligible"; refresh(); return; }
+			if (data === "a" || data === "A") { for (const item of items) selected.add(modelKey(item.provider, item.model)); refresh(); return; }
+			if (data === "n" || data === "N") { for (const item of items) selected.delete(modelKey(item.provider, item.model)); refresh(); return; }
+			if (data === "e" || data === "E") { beginAliasEdit(items[index]); return; }
+			if (data === "p" || data === "P") { exclude = exclude === "same-provider" ? "same-model" : "same-provider"; refresh(); return; }
+			if (data === "d" || data === "D") { defaultReviewers = defaultReviewers === "all-eligible" ? "ask" : "all-eligible"; refresh(); return; }
 			if (data === "l") { loggingEnabled = !loggingEnabled; if (!loggingEnabled) rawLogging = false; refresh(); return; }
 			if (data === "L") { rawLogging = !rawLogging; if (rawLogging) loggingEnabled = true; refresh(); return; }
 			if (data === "+" || data === "=") { maxRounds = Math.min(10, maxRounds + 1); refresh(); return; }
 			if (data === "-" || data === "_") { maxRounds = Math.max(1, maxRounds - 1); refresh(); return; }
-			if (data === "/") { query = ""; refresh(); return; }
-			if (isPrintable(data)) { query += data; refresh(); return; }
+			if (data === "/") { searchMode = true; message = "Search mode: type to filter, Enter keep filter, Esc clear"; refresh(); return; }
 		}
 		function render(width: number): string[] {
 			if (cachedLines) return cachedLines;
@@ -147,7 +154,7 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 			add(theme.fg("accent", theme.bold(" Wingman setup")) + theme.fg("dim", `  ${configPath(ctx.cwd)}`));
 			add(theme.fg("muted", ` Selected ${selected.size}/${models.length} • Exclude ${exclude} • Default ${defaultReviewers} • Max rounds ${maxRounds} • Logging ${loggingEnabled ? rawLogging ? "raw" : "summary" : "off"}`));
 			add(theme.fg(exclude === "same-provider" ? "warning" : "accent", ` Policy: ${exclude === "same-provider" ? "same-provider = strongest independence" : "same-model = allow same-provider different-model reviewers"} (exact same model is always excluded at runtime)`));
-			add(theme.fg("muted", editingKey ? ` Alias: ${editBuffer || "_"}` : ` Search: ${query || "(type to filter)"}`));
+			add(theme.fg(searchMode ? "accent" : "muted", editingKey ? ` Alias: ${editBuffer || "_"}` : ` Search: ${query || "(press / to filter)"}${searchMode ? "_" : ""}`));
 			if (message) add(theme.fg(message.startsWith("Duplicate") || message.startsWith("Alias must") ? "warning" : "muted", ` ${message}`));
 			add();
 			if (items.length === 0) {
@@ -167,7 +174,7 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 				}
 			}
 			add();
-			add(theme.fg("dim", " ↑↓ move • Space toggle • e edit alias • Enter save • Esc clear/cancel • a all • n none • p policy • d default • +/- rounds • l logging"));
+			add(theme.fg("dim", " ↑↓ move • Space toggle • / search • e edit alias • Enter save • Esc clear/cancel • a all • n none • p policy • d default • +/- rounds • l logging"));
 			add(top);
 			cachedLines = lines;
 			return lines;
