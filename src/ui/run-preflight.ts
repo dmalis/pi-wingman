@@ -25,6 +25,8 @@ export async function showRunPreflight(ctx: { hasUI?: boolean; ui: any }, input:
 					refresh();
 					return;
 				}
+				if (data === "a") { for (const reviewer of input.reviewers) selected.add(reviewer.key); refresh(); return; }
+				if (data === "n") { selected.clear(); refresh(); return; }
 				if (data === "e") { done("edit"); return; }
 			}
 			function render(width: number): string[] {
@@ -39,7 +41,7 @@ export async function showRunPreflight(ctx: { hasUI?: boolean; ui: any }, input:
 				add(theme.fg("text", " Focus"));
 				for (const line of (request || input.context.focus).split(/\r?\n/).slice(0, 4)) add(theme.fg("muted", `  ${line}`));
 				add();
-				add(theme.fg("text", " Reviewers"));
+				add(theme.fg("text", ` Reviewers (${selected.size}/${input.reviewers.length} selected)`));
 				for (let i = 0; i < input.reviewers.length; i += 1) {
 					const reviewer = input.reviewers[i];
 					const marker = selected.has(reviewer.key) ? "[x]" : "[ ]";
@@ -48,7 +50,7 @@ export async function showRunPreflight(ctx: { hasUI?: boolean; ui: any }, input:
 					add(i === index ? theme.fg("accent", text) : theme.fg(selected.has(reviewer.key) ? "text" : "muted", text));
 				}
 				add();
-				add(theme.fg("dim", " Enter run • Space toggle reviewer • e edit focus • Esc cancel"));
+				add(theme.fg("dim", " Enter run • Space toggle • a all • n none • e edit focus • Esc cancel"));
 				add(border);
 				cachedLines = lines;
 				return lines;

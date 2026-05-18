@@ -27,6 +27,7 @@ test("natural routing handles wingman as product name, not reviewer alias", () =
 	assert.equal(parseNaturalWingmanRequest("ask wingman find consensus", hints)?.request, "find consensus");
 	assert.equal(parseNaturalWingmanRequest("ask wingman find consensus", hints)?.reviewerHint, undefined);
 	assert.deepEqual(parseNaturalWingmanRequest("audit with wingman", hints), { request: "audit with wingman" });
+	assert.deepEqual(parseNaturalWingmanRequest("check with wingman", hints), { request: "check with wingman" });
 	assert.deepEqual(parseNaturalWingmanRequest("audit with wingman this plan", hints), { request: "this plan" });
 	assert.equal(parseNaturalWingmanRequest("do not ask wingman about this", hints), undefined);
 });

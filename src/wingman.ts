@@ -26,8 +26,13 @@ function inferReviewerHintFromRequest(request: string, config: WingmanConfig): s
 	return matches.length === 1 ? token : undefined;
 }
 
+function productAliasRequest(request: string): boolean {
+	return /\b(ask\s+wingman|with\s+wingman|wingman\s+audit|second\s+opinion|sanity[-\s]+check)\b/i.test(request);
+}
+
 function shouldShowPreflight(config: WingmanConfig, input: WingmanRunInput, contextConfidence: "high" | "medium" | "low", selected: ResolvedReviewer[]): boolean {
 	if (!input.interactive) return false;
+	if (!input.reviewerHint && productAliasRequest(input.request)) return true;
 	if (config.defaultReviewers === "ask") return true;
 	if (contextConfidence !== "high") return true;
 	if (!input.reviewerHint && selected.length > 1 && /\b(pick|choose|which|consensus|decide)\b/i.test(input.request)) return true;

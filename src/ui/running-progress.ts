@@ -35,13 +35,11 @@ export async function withRunningProgress<T>(ctx: { hasUI?: boolean; ui: any }, 
 			const ok = values.filter((item) => item.status === "ok").length;
 			const failed = values.filter((item) => item.status === "failed").length;
 			ctx.ui.setStatus?.("wingman", `wingman: ${ok} ok / ${failed} failed / ${running} running`);
-			ctx.ui.setWidget?.("wingman", values.map((item) => `${statusIcon(item.status)} ${item.reviewer.name}: ${item.status}${item.error ? ` (${item.error})` : ""}`).slice(0, 8));
 			requestRender();
 		}
 		function finish<R>(value: R): R {
 			finished = true;
 			ctx.ui.setStatus?.("wingman", undefined);
-			ctx.ui.setWidget?.("wingman", undefined);
 			done(value as unknown as T);
 			return value;
 		}
