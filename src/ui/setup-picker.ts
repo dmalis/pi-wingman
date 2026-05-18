@@ -1,10 +1,17 @@
-import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+import { decodeKittyPrintable, Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import { configPath } from "../config.ts";
 import { formatModelLabel, makeUniqueReviewerNames, modelKey, sanitizeReviewerName } from "../models.ts";
 import type { ModelListItem, WingmanConfig, WingmanReviewerConfig } from "../types.ts";
 
-function isPrintable(data: string): boolean {
-	return data.length === 1 && data >= " " && data !== "\x7f";
+function printableChar(data: string): string | undefined {
+	const decoded = decodeKittyPrintable(data);
+	if (decoded && decoded.length === 1 && decoded >= " " && decoded !== "\x7f") return decoded;
+	if (data.length === 1 && data >= " " && data !== "\x7f") return data;
+	return undefined;
+}
+
+function key(data: string, value: string): boolean {
+	return data === value || matchesKey(data, value as never) || matchesKey(data, Key.shift(value as never) as never);
 }
 
 function filterItems(items: ModelListItem[], query: string): ModelListItem[] {
@@ -107,14 +114,16 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 				if (matchesKey(data, Key.escape)) { editingKey = undefined; editBuffer = ""; message = "Alias edit cancelled"; refresh(); return; }
 				if (matchesKey(data, Key.enter)) { applyAliasEdit(); return; }
 				if (matchesKey(data, Key.backspace)) { editBuffer = editBuffer.slice(0, -1); refresh(); return; }
-				if (isPrintable(data)) { editBuffer = sanitizeReviewerName(editBuffer + data); refresh(); return; }
+				const char = printableChar(data);
+				if (char) { editBuffer = sanitizeReviewerName(editBuffer + char); refresh(); return; }
 				return;
 			}
 			if (searchMode) {
 				if (matchesKey(data, Key.escape)) { searchMode = false; if (query) query = ""; refresh(); return; }
 				if (matchesKey(data, Key.enter)) { searchMode = false; refresh(); return; }
 				if (matchesKey(data, Key.backspace)) { query = query.slice(0, -1); refresh(); return; }
-				if (isPrintable(data)) { query += data; refresh(); return; }
+				const char = printableChar(data);
+				if (char) { query += char; refresh(); return; }
 				return;
 			}
 			if (matchesKey(data, Key.escape)) {
@@ -133,16 +142,16 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 			}
 			if (matchesKey(data, Key.space)) { toggle(items[index]); return; }
 			if (matchesKey(data, Key.backspace)) { query = query.slice(0, -1); refresh(); return; }
-			if (data === "a" || data === "A") { for (const item of items) selected.add(modelKey(item.provider, item.model)); refresh(); return; }
-			if (data === "n" || data === "N") { for (const item of items) selected.delete(modelKey(item.provider, item.model)); refresh(); return; }
-			if (data === "e" || data === "E") { beginAliasEdit(items[index]); return; }
-			if (data === "p" || data === "P") { exclude = exclude === "same-provider" ? "same-model" : "same-provider"; refresh(); return; }
-			if (data === "d" || data === "D") { defaultReviewers = defaultReviewers === "all-eligible" ? "ask" : "all-eligible"; refresh(); return; }
-			if (data === "l") { loggingEnabled = !loggingEnabled; if (!loggingEnabled) rawLogging = false; refresh(); return; }
-			if (data === "L") { rawLogging = !rawLogging; if (rawLogging) loggingEnabled = true; refresh(); return; }
-			if (data === "+" || data === "=") { maxRounds = Math.min(10, maxRounds + 1); refresh(); return; }
-			if (data === "-" || data === "_") { maxRounds = Math.max(1, maxRounds - 1); refresh(); return; }
-			if (data === "/") { searchMode = true; message = "Search mode: type to filter, Enter keep filter, Esc clear"; refresh(); return; }
+			if (key(data, "a")) { for (const item of items) selected.add(modelKey(item.provider, item.model)); refresh(); return; }
+			if (key(data, "n")) { for (const item of items) selected.delete(modelKey(item.provider, item.model)); refresh(); return; }
+			if (key(data, "e")) { beginAliasEdit(items[index]); return; }
+			if (key(data, "p")) { exclude = exclude === "same-provider" ? "same-model" : "same-provider"; refresh(); return; }
+			if (key(data, "d")) { defaultReviewers = defaultReviewers === "all-eligible" ? "ask" : "all-eligible"; refresh(); return; }
+			if (data === "L" || matchesKey(data, Key.shift("l"))) { rawLogging = !rawLogging; if (rawLogging) loggingEnabled = true; refresh(); return; }
+			if (data === "l" || matchesKey(data, "l")) { loggingEnabled = !loggingEnabled; if (!loggingEnabled) rawLogging = false; refresh(); return; }
+			if (data === "+" || data === "=" || matchesKey(data, Key.plus) || matchesKey(data, Key.equals)) { maxRounds = Math.min(10, maxRounds + 1); refresh(); return; }
+			if (data === "-" || data === "_" || matchesKey(data, Key.hyphen) || matchesKey(data, Key.underscore)) { maxRounds = Math.max(1, maxRounds - 1); refresh(); return; }
+			if (data === "/" || matchesKey(data, Key.slash)) { searchMode = true; message = "Search mode: type to filter, Enter keep filter, Esc clear"; refresh(); return; }
 		}
 		function render(width: number): string[] {
 			if (cachedLines) return cachedLines;

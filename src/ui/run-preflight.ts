@@ -1,4 +1,9 @@
 import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
+
+function key(data: string, value: string): boolean {
+	return data === value || matchesKey(data, value as never) || matchesKey(data, Key.shift(value as never) as never);
+}
+
 import type { ResolvedReviewer, WingmanContextPack } from "../types.ts";
 
 export type PreflightResult =
@@ -25,9 +30,9 @@ export async function showRunPreflight(ctx: { hasUI?: boolean; ui: any }, input:
 					refresh();
 					return;
 				}
-				if (data === "a" || data === "A") { for (const reviewer of input.reviewers) selected.add(reviewer.key); refresh(); return; }
-				if (data === "n" || data === "N") { selected.clear(); refresh(); return; }
-				if (data === "e" || data === "E") { done("edit"); return; }
+				if (key(data, "a")) { for (const reviewer of input.reviewers) selected.add(reviewer.key); refresh(); return; }
+				if (key(data, "n")) { selected.clear(); refresh(); return; }
+				if (key(data, "e")) { done("edit"); return; }
 			}
 			function render(width: number): string[] {
 				if (cachedLines) return cachedLines;
