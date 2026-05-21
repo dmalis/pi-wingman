@@ -1,7 +1,7 @@
 import { decodeKittyPrintable, Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import { configPath } from "../config.ts";
 import { formatModelLabel, makeUniqueReviewerNames, modelKey, sanitizeReviewerName } from "../models.ts";
-import type { ModelListItem, WingmanConfig, WingmanReviewerConfig } from "../types.ts";
+import type { DefaultReviewers, ExclusionPolicy, ModelListItem, WingmanConfig, WingmanReviewerConfig } from "../types.ts";
 
 function printableChar(data: string): string | undefined {
 	const decoded = decodeKittyPrintable(data);
@@ -36,88 +36,44 @@ function duplicateAliases(reviewers: WingmanReviewerConfig[]): string[] {
 	return [...dupes];
 }
 
-export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: any }, models: ModelListItem[], current: WingmanConfig): Promise<WingmanConfig | undefined> {
-	if (!ctx.hasUI) {
-		return { ...current, reviewers: current.reviewers };
-	}
-	const existing = new Map(current.reviewers.map((reviewer) => [modelKey(reviewer.provider, reviewer.model), reviewer]));
-	const selected = new Set(current.reviewers.map((reviewer) => modelKey(reviewer.provider, reviewer.model)));
-	const names = makeUniqueReviewerNames(models);
-	const aliases = new Map<string, string>(names);
-	for (const reviewer of current.reviewers) aliases.set(modelKey(reviewer.provider, reviewer.model), reviewer.name);
-	let exclude = current.exclude;
-	let maxRounds = current.maxRounds;
-	let defaultReviewers = current.defaultReviewers;
-	let loggingEnabled = current.logging.enabled;
-	let rawLogging = current.logging.raw;
+function buildConfig(current: WingmanConfig, models: ModelListItem[], selected: Set<string>, aliases: Map<string, string>, existing: Map<string, WingmanReviewerConfig>, overrides: Partial<WingmanConfig>): WingmanConfig {
+	const reviewers = models
+		.filter((item) => selected.has(modelKey(item.provider, item.model)))
+		.map((item) => reviewerForItem(item, aliases, existing));
+	return {
+		version: 1,
+		exclude: overrides.exclude ?? current.exclude,
+		defaultReviewers: overrides.defaultReviewers ?? current.defaultReviewers,
+		maxRounds: overrides.maxRounds ?? current.maxRounds,
+		maxParallelReviewers: current.maxParallelReviewers,
+		logging: overrides.logging ?? current.logging,
+		reviewers,
+	};
+}
 
-	const saved = await ctx.ui.custom((tui: any, theme: any, _kb: any, done: (value: WingmanConfig | null) => void) => {
+async function chooseReviewerModels(ctx: { cwd: string; ui: any }, models: ModelListItem[], selected: Set<string>, aliases: Map<string, string>): Promise<boolean> {
+	const result = await ctx.ui.custom((tui: any, theme: any, _kb: any, done: (value: boolean) => void) => {
 		let query = "";
 		let index = 0;
 		let cachedLines: string[] | undefined;
-		let editingKey: string | undefined;
-		let editBuffer = "";
 		let searchMode = false;
 		let message = "";
 
-		function visible() {
-			return filterItems(models, query);
-		}
+		function visible() { return filterItems(models, query); }
 		function clamp() {
 			const count = visible().length;
 			index = Math.max(0, Math.min(index, Math.max(0, count - 1)));
 		}
-		function refresh() {
-			cachedLines = undefined;
-			clamp();
-			tui.requestRender();
-		}
+		function refresh() { cachedLines = undefined; clamp(); tui.requestRender(); }
 		function toggle(item: ModelListItem | undefined) {
 			if (!item) return;
-			const key = modelKey(item.provider, item.model);
-			if (selected.has(key)) selected.delete(key);
-			else selected.add(key);
-			refresh();
-		}
-		function buildConfig(): WingmanConfig {
-			const reviewers = models
-				.filter((item) => selected.has(modelKey(item.provider, item.model)))
-				.map((item) => reviewerForItem(item, aliases, existing));
-			return { version: 1, exclude, defaultReviewers, maxRounds, maxParallelReviewers: current.maxParallelReviewers, logging: { enabled: loggingEnabled, raw: rawLogging }, reviewers };
-		}
-		function beginAliasEdit(item: ModelListItem | undefined) {
-			if (!item) return;
-			const key = modelKey(item.provider, item.model);
-			selected.add(key);
-			editingKey = key;
-			editBuffer = aliases.get(key) ?? "";
-			message = "Editing alias: use [a-z0-9._-]+, Enter apply, Esc cancel";
-			refresh();
-		}
-		function applyAliasEdit() {
-			if (!editingKey) return;
-			const alias = editBuffer.trim();
-			if (!/^[a-z0-9._-]+$/.test(alias)) {
-				message = "Alias must match [a-z0-9._-]+";
-				refresh();
-				return;
-			}
-			aliases.set(editingKey, alias);
-			editingKey = undefined;
-			editBuffer = "";
-			message = "Alias updated";
+			const k = modelKey(item.provider, item.model);
+			if (selected.has(k)) selected.delete(k);
+			else selected.add(k);
 			refresh();
 		}
 		function handleInput(data: string) {
 			const items = visible();
-			if (editingKey) {
-				if (matchesKey(data, Key.escape)) { editingKey = undefined; editBuffer = ""; message = "Alias edit cancelled"; refresh(); return; }
-				if (matchesKey(data, Key.enter)) { applyAliasEdit(); return; }
-				if (matchesKey(data, Key.backspace)) { editBuffer = editBuffer.slice(0, -1); refresh(); return; }
-				const char = printableChar(data);
-				if (char) { editBuffer = sanitizeReviewerName(editBuffer + char); refresh(); return; }
-				return;
-			}
 			if (searchMode) {
 				if (matchesKey(data, Key.escape)) { searchMode = false; if (query) query = ""; refresh(); return; }
 				if (matchesKey(data, Key.enter)) { searchMode = false; refresh(); return; }
@@ -126,31 +82,13 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 				if (char) { query += char; refresh(); return; }
 				return;
 			}
-			if (matchesKey(data, Key.escape)) {
-				if (query) { query = ""; refresh(); return; }
-				done(null);
-				return;
-			}
+			if (matchesKey(data, Key.escape)) { done(false); return; }
 			if (matchesKey(data, Key.up)) { index -= 1; refresh(); return; }
 			if (matchesKey(data, Key.down)) { index += 1; refresh(); return; }
-			if (matchesKey(data, Key.enter)) {
-				const next = buildConfig();
-				const dupes = duplicateAliases(next.reviewers);
-				if (dupes.length > 0) { message = `Duplicate aliases: ${dupes.join(", ")}`; refresh(); return; }
-				done(next);
-				return;
-			}
 			if (matchesKey(data, Key.space)) { toggle(items[index]); return; }
-			if (matchesKey(data, Key.backspace)) { query = query.slice(0, -1); refresh(); return; }
+			if (matchesKey(data, Key.enter)) { done(true); return; }
 			if (key(data, "a")) { for (const item of items) selected.add(modelKey(item.provider, item.model)); refresh(); return; }
 			if (key(data, "n")) { for (const item of items) selected.delete(modelKey(item.provider, item.model)); refresh(); return; }
-			if (key(data, "e")) { beginAliasEdit(items[index]); return; }
-			if (key(data, "p")) { exclude = exclude === "same-provider" ? "same-model" : "same-provider"; refresh(); return; }
-			if (key(data, "d")) { defaultReviewers = defaultReviewers === "all-eligible" ? "ask" : "all-eligible"; refresh(); return; }
-			if (data === "L" || matchesKey(data, Key.shift("l"))) { rawLogging = !rawLogging; if (rawLogging) loggingEnabled = true; refresh(); return; }
-			if (data === "l" || matchesKey(data, "l")) { loggingEnabled = !loggingEnabled; if (!loggingEnabled) rawLogging = false; refresh(); return; }
-			if (data === "+" || data === "=" || matchesKey(data, Key.plus) || matchesKey(data, Key.equals)) { maxRounds = Math.min(10, maxRounds + 1); refresh(); return; }
-			if (data === "-" || data === "_" || matchesKey(data, Key.hyphen) || matchesKey(data, Key.underscore)) { maxRounds = Math.max(1, maxRounds - 1); refresh(); return; }
 			if (data === "/" || matchesKey(data, Key.slash)) { searchMode = true; message = "Search mode: type to filter, Enter keep filter, Esc clear"; refresh(); return; }
 		}
 		function render(width: number): string[] {
@@ -160,35 +98,110 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 			const items = visible();
 			const top = theme.fg("accent", "─".repeat(width));
 			add(top);
-			add(theme.fg("accent", theme.bold(" Wingman setup")) + theme.fg("dim", `  ${configPath(ctx.cwd)}`));
-			add(theme.fg("muted", ` Selected ${selected.size}/${models.length} • Exclude ${exclude} • Default ${defaultReviewers} • Max rounds ${maxRounds} • Logging ${loggingEnabled ? rawLogging ? "raw" : "summary" : "off"}`));
-			add(theme.fg(exclude === "same-provider" ? "warning" : "accent", ` Policy: ${exclude === "same-provider" ? "same-provider = strongest independence" : "same-model = allow same-provider different-model reviewers"} (exact same model is always excluded at runtime)`));
-			add(theme.fg(searchMode ? "accent" : "muted", editingKey ? ` Alias: ${editBuffer || "_"}` : ` Search: ${query || "(press / to filter)"}${searchMode ? "_" : ""}`));
-			if (message) add(theme.fg(message.startsWith("Duplicate") || message.startsWith("Alias must") ? "warning" : "muted", ` ${message}`));
+			add(theme.fg("accent", theme.bold(" Wingman setup: choose reviewer models")) + theme.fg("dim", `  ${configPath(ctx.cwd)}`));
+			add(theme.fg("muted", ` Selected ${selected.size}/${models.length}`));
+			add(theme.fg(searchMode ? "accent" : "muted", ` Search: ${query || "(press / to filter)"}${searchMode ? "_" : ""}`));
+			if (message) add(theme.fg("muted", ` ${message}`));
 			add();
-			if (items.length === 0) {
-				add(theme.fg("warning", " No matching models"));
-			} else {
-				const start = Math.max(0, Math.min(index - 7, Math.max(0, items.length - 15)));
-				const page = items.slice(start, start + 15);
+			if (items.length === 0) add(theme.fg("warning", " No matching models"));
+			else {
+				const start = Math.max(0, Math.min(index - 8, Math.max(0, items.length - 17)));
+				const page = items.slice(start, start + 17);
 				for (let offset = 0; offset < page.length; offset += 1) {
 					const item = page[offset];
 					const absolute = start + offset;
-					const key = modelKey(item.provider, item.model);
-					const marker = selected.has(key) ? "[x]" : "[ ]";
+					const k = modelKey(item.provider, item.model);
+					const marker = selected.has(k) ? "[x]" : "[ ]";
 					const cursor = absolute === index ? ">" : " ";
-					const name = aliases.get(key) ?? item.provider;
+					const name = aliases.get(k) ?? item.provider;
 					const text = `${cursor} ${marker} ${name.padEnd(12)} ${formatModelLabel(item)}`;
-					add(absolute === index ? theme.fg("accent", text) : theme.fg(selected.has(key) ? "text" : "muted", text));
+					add(absolute === index ? theme.fg("accent", text) : theme.fg(selected.has(k) ? "text" : "muted", text));
 				}
 			}
 			add();
-			add(theme.fg("dim", " ↑↓ move • Space toggle • / search • e edit alias • Enter save • Esc clear/cancel • a all • n none • p policy • d default • +/- rounds • l logging"));
+			add(theme.fg("dim", " ↑↓ move • Space toggle • / search • a all • n none • Enter continue • Esc cancel"));
 			add(top);
 			cachedLines = lines;
 			return lines;
 		}
 		return { render, invalidate: () => { cachedLines = undefined; }, handleInput };
 	});
-	return (saved as WingmanConfig | null) ?? undefined;
+	return result === true;
+}
+
+async function editAliases(ctx: { ui: any }, models: ModelListItem[], selected: Set<string>, aliases: Map<string, string>, existing: Map<string, WingmanReviewerConfig>): Promise<boolean> {
+	const selectedModels = models.filter((item) => selected.has(modelKey(item.provider, item.model)));
+	for (const item of selectedModels) {
+		const k = modelKey(item.provider, item.model);
+		const current = aliases.get(k) ?? existing.get(k)?.name ?? item.provider;
+		const answer = await ctx.ui.input(`Alias for ${formatModelLabel(item)}`, current);
+		if (answer === undefined) return false;
+		const alias = sanitizeReviewerName(String(answer).trim() || current);
+		if (!/^[a-z0-9._-]+$/.test(alias)) {
+			ctx.ui.notify(`Invalid alias for ${formatModelLabel(item)}; keeping ${current}`, "warning");
+			aliases.set(k, current);
+		} else {
+			aliases.set(k, alias);
+		}
+	}
+	return true;
+}
+
+export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: any }, models: ModelListItem[], current: WingmanConfig): Promise<WingmanConfig | undefined> {
+	if (!ctx.hasUI) return { ...current, reviewers: current.reviewers };
+
+	const existing = new Map(current.reviewers.map((reviewer) => [modelKey(reviewer.provider, reviewer.model), reviewer]));
+	const selected = new Set(current.reviewers.map((reviewer) => modelKey(reviewer.provider, reviewer.model)));
+	const aliases = new Map<string, string>(makeUniqueReviewerNames(models));
+	for (const reviewer of current.reviewers) aliases.set(modelKey(reviewer.provider, reviewer.model), reviewer.name);
+
+	if (!(await chooseReviewerModels(ctx, models, selected, aliases))) return undefined;
+	if (selected.size === 0) {
+		ctx.ui.notify("Select at least one Wingman reviewer.", "warning");
+		return undefined;
+	}
+
+	const editNames = await ctx.ui.confirm("Reviewer aliases", "Edit reviewer aliases now?", { timeout: 15000 });
+	if (editNames && !(await editAliases(ctx, models, selected, aliases, existing))) return undefined;
+
+	let exclude = current.exclude;
+	let defaultReviewers = current.defaultReviewers;
+	let maxRounds = current.maxRounds;
+	let logging = { ...current.logging };
+
+	const policyChoice = await ctx.ui.select("Independence policy", [
+		"Strongest: exclude same provider",
+		"Flexible: exclude exact same model only",
+	]);
+	if (!policyChoice) return undefined;
+	exclude = (String(policyChoice).startsWith("Strongest") ? "same-provider" : "same-model") as ExclusionPolicy;
+
+	const defaultChoice = await ctx.ui.select("When /wingman runs without explicit reviewers", [
+		"Use all eligible reviewers",
+		"Ask each time",
+	]);
+	if (!defaultChoice) return undefined;
+	defaultReviewers = (String(defaultChoice).startsWith("Use all") ? "all-eligible" : "ask") as DefaultReviewers;
+
+	const advanced = await ctx.ui.confirm("Advanced settings", "Configure logging and consensus rounds?", { timeout: 15000 });
+	if (advanced) {
+		const loggingChoice = await ctx.ui.select("Logging", ["Off", "Summary logs", "Raw logs"]);
+		if (!loggingChoice) return undefined;
+		logging = String(loggingChoice).startsWith("Off") ? { enabled: false, raw: false } : { enabled: true, raw: String(loggingChoice).startsWith("Raw") };
+
+		const roundsChoice = await ctx.ui.select("Max consensus rounds", ["1", "2", "3", "4", "5", "10"]);
+		if (!roundsChoice) return undefined;
+		maxRounds = Number(roundsChoice);
+	}
+
+	const next = buildConfig(current, models, selected, aliases, existing, { exclude, defaultReviewers, maxRounds, logging });
+	const dupes = duplicateAliases(next.reviewers);
+	if (dupes.length > 0) {
+		ctx.ui.notify(`Duplicate aliases: ${dupes.join(", ")}`, "error");
+		return undefined;
+	}
+
+	const summary = `Reviewers: ${next.reviewers.map((r) => r.name).join(", ")}\nPolicy: ${next.exclude}\nDefault: ${next.defaultReviewers}\nMax rounds: ${next.maxRounds}\nLogging: ${next.logging.enabled ? next.logging.raw ? "raw" : "summary" : "off"}`;
+	const save = await ctx.ui.confirm("Save Wingman setup?", summary);
+	return save ? next : undefined;
 }
