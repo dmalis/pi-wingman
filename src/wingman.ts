@@ -70,7 +70,7 @@ export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: W
 	const current = currentModelFromPi(ctx.model);
 	const eligible = resolveConfiguredReviewers(config, ctx.modelRegistry as unknown as ModelRegistryLike, current);
 	let selected = selectReviewers({ eligible, hint: reviewerHint, names: input.reviewerNames });
-	const context = await inferWingmanContext({ pi, cwd: ctx.cwd, session: ctx.sessionManager, request: input.request, targetHint: input.targetHint, signal: ctx.signal });
+	let context = await inferWingmanContext({ pi, cwd: ctx.cwd, session: ctx.sessionManager, request: input.request, targetHint: input.targetHint, signal: ctx.signal });
 	let request = input.request;
 
 	if (shouldShowPreflight(config, { ...input, reviewerHint }, context.target.confidence, selected)) {
@@ -80,7 +80,10 @@ export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: W
 			return { ...cancelled, text: formatWingmanRunResult(cancelled) };
 		}
 		selected = preflight.reviewers;
-		request = preflight.request;
+		request = preflight.request.trim() || request;
+		if (request !== input.request) {
+			context = await inferWingmanContext({ pi, cwd: ctx.cwd, session: ctx.sessionManager, request, targetHint: input.targetHint, signal: ctx.signal });
+		}
 		reviewerHint = undefined;
 	}
 

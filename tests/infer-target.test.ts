@@ -47,6 +47,13 @@ test("target inference detects current plan before git state", async () => {
 	assert.equal(context.backend, "direct");
 });
 
+test("target inference treats explicit freeform focus as the target", async () => {
+	const context = await inferWingmanContext({ pi: repoPi(" M src/file.ts\n"), cwd: "/repo", request: "vite or grunt", session: session("Implementation plan\n1. implement change\n2. test it\n3. verify behavior") });
+	assert.equal(context.target.type, "freeform");
+	assert.equal(context.label, "freeform request");
+	assert.match(context.content, /## Request\n\nvite or grunt/);
+});
+
 test("target inference detects dirty working tree before branch diff", async () => {
 	const context = await inferWingmanContext({ pi: repoPi(" M src/file.ts\n"), cwd: "/repo", request: "audit", session: session("Looks good.") });
 	assert.equal(context.target.type, "working-tree");

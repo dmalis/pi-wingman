@@ -85,6 +85,8 @@ export async function inferWingmanContext(input: {
 	const recentConversation = bound(getRecentConversation(input.session, 8), MAX_RECENT_CONVERSATION);
 	const explicit = parseExplicitTarget(request);
 	const git = await getGitState(exec, input.cwd, input.signal);
+	const genericRequest = !request || /^(auto|this|current|current context|review|audit|check|second opinion|sanity[-\s]+check)$/i.test(request);
+	const planRequest = /\b(plan|design|spec|proposal)\b/i.test(request);
 
 	let target: WingmanTarget | undefined = explicit;
 	let reason = explicit ? "explicit target in request" : "smart inference";
@@ -92,19 +94,19 @@ export async function inferWingmanContext(input: {
 		const question = extractLatestQuestion(lastAssistant);
 		if (question) target = { type: "question-consensus", question, confidence: "high" };
 	}
-	if (!target && /\b(plan|design|spec|proposal)\b/i.test(request) && looksLikePlan(lastAssistant)) {
+	if (!target && planRequest && looksLikePlan(lastAssistant)) {
 		target = { type: "current-plan", text: summarizePlan(lastAssistant ?? ""), confidence: "high" };
 	}
-	if (!target && looksLikePlan(lastAssistant)) {
+	if (!target && genericRequest && looksLikePlan(lastAssistant)) {
 		target = { type: "current-plan", text: summarizePlan(lastAssistant ?? ""), confidence: "medium" };
 	}
-	if (!target && git.isRepo && git.isDirty) {
+	if (!target && genericRequest && git.isRepo && git.isDirty) {
 		target = { type: "working-tree", confidence: "high" };
 	}
-	if (!target && git.isRepo && git.branch && git.defaultBranch && git.branch !== git.defaultBranch) {
+	if (!target && genericRequest && git.isRepo && git.branch && git.defaultBranch && git.branch !== git.defaultBranch) {
 		target = { type: "branch-diff", base: git.defaultBranch, confidence: "medium" };
 	}
-	if (!target && lastAssistant) {
+	if (!target && genericRequest && lastAssistant) {
 		target = { type: "last-turn", text: bound(lastAssistant, 16000), confidence: "medium" };
 	}
 	if (!target) {
