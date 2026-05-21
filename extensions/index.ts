@@ -40,10 +40,7 @@ export default function wingmanExtension(pi: ExtensionAPI) {
 			const result = await runWingman(pi, ctx, { request: args.trim() || "auto", interactive: true });
 			await pi.sendMessage?.({ customType: "wingman-result", content: result.text, display: true, details: result });
 			if (!result.cancelled && result.results.some((item) => item.status === "ok")) {
-				await pi.sendUserMessage([
-					{ type: "text", text: result.text },
-					{ type: "text", text: "\n\nIntegrate this Wingman result for the user. State what you accept, what you reject, and concrete next actions. Do not dump raw reviewer output. After the synthesis, STOP and ask the user for confirmation before modifying files, updating plans, fixing, or continuing implementation." },
-				]);
+				await pi.sendUserMessage("Integrate the Wingman result from the previous message for the user. State what you accept, what you reject, and concrete next actions. Do not dump raw reviewer output. After the synthesis, STOP and ask the user for confirmation before modifying files, updating plans, fixing, or continuing implementation.");
 			}
 		},
 	});

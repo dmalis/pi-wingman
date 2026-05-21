@@ -141,7 +141,7 @@ export async function inferWingmanContext(input: {
 
 	const label = targetLabel(target);
 	const focus = request || label;
-	const content = [
+	const contentParts = [
 		"# Wingman context pack",
 		`CWD: ${git.root || input.cwd}`,
 		`Target: ${label}`,
@@ -149,9 +149,10 @@ export async function inferWingmanContext(input: {
 		`Inference: ${reason}; confidence ${target.confidence}`,
 		"",
 		section("User Request", request || "(no explicit request)"),
-		section("Recent Conversation", recentConversation),
-		section("Target Context", targetContent),
-	].join("\n");
+	];
+	if (target.type !== "freeform") contentParts.push(section("Recent Conversation", recentConversation));
+	contentParts.push(section("Target Context", targetContent));
+	const content = contentParts.join("\n");
 
 	return {
 		target,

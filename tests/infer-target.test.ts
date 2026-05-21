@@ -52,6 +52,8 @@ test("target inference treats explicit freeform focus as the target", async () =
 	assert.equal(context.target.type, "freeform");
 	assert.equal(context.label, "freeform request");
 	assert.match(context.content, /## Request\n\nvite or grunt/);
+	assert.doesNotMatch(context.content, /Implementation plan/);
+	assert.doesNotMatch(context.content, /Recent Conversation/);
 });
 
 test("target inference detects dirty working tree before branch diff", async () => {
