@@ -93,8 +93,9 @@ export default function wingmanExtension(pi: ExtensionAPI) {
 	pi.on("input", async (event: InputEvent, ctx): Promise<InputEventResult | undefined> => {
 		if (event.source === "extension") return { action: "continue" };
 		const config = await readWingmanConfig(ctx.cwd).catch(() => undefined);
-		const parsed = parseNaturalWingmanRequest(event.text, reviewerHintsFromConfig(config?.reviewers ?? []));
+		const reviewers = config?.reviewers ?? [];
+		const parsed = parseNaturalWingmanRequest(event.text, reviewerHintsFromConfig(reviewers));
 		if (!parsed) return { action: "continue" };
-		return { action: "transform", text: buildWingmanToolInstruction(parsed), images: event.images };
+		return { action: "transform", text: buildWingmanToolInstruction(parsed, reviewers.map((reviewer) => reviewer.name)), images: event.images };
 	});
 }

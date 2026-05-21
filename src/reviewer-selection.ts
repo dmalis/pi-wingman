@@ -54,6 +54,23 @@ export function reviewerMatchesHint(reviewer: Pick<WingmanReviewerConfig, "name"
 	return haystack.includes(normalized);
 }
 
+function selectByHint(eligible: ResolvedReviewer[], hint: string, label: string): ResolvedReviewer[] {
+	const normalized = hint.trim().toLowerCase();
+	const phrase = label ? `${label} ${hint}` : hint;
+	const exactName = eligible.filter((reviewer) => reviewer.name.toLowerCase() === normalized);
+	if (exactName.length === 1) return exactName;
+	if (exactName.length > 1) throw new Error(`Multiple eligible Wingman reviewers match ${phrase}: ${exactName.map((reviewer) => reviewer.key).join(", ")}.`);
+
+	const exactKey = eligible.filter((reviewer) => reviewer.key.toLowerCase() === normalized || reviewer.provider.toLowerCase() === normalized || reviewer.model.toLowerCase() === normalized);
+	if (exactKey.length === 1) return exactKey;
+	if (exactKey.length > 1) throw new Error(`Multiple eligible Wingman reviewers match ${phrase}: ${exactKey.map((reviewer) => reviewer.key).join(", ")}.`);
+
+	const matches = eligible.filter((reviewer) => reviewerMatchesHint(reviewer, hint));
+	if (matches.length === 0) throw new Error(`No eligible configured Wingman reviewer matches ${phrase}.`);
+	if (matches.length > 1) throw new Error(`Multiple eligible Wingman reviewers match ${phrase}: ${matches.map((reviewer) => reviewer.key).join(", ")}.`);
+	return matches;
+}
+
 export function selectReviewers(input: {
 	eligible: ResolvedReviewer[];
 	hint?: string;
@@ -61,21 +78,10 @@ export function selectReviewers(input: {
 }): ResolvedReviewer[] {
 	const names = input.names?.map((name) => name.trim()).filter(Boolean) ?? [];
 	if (names.length > 0) {
-		const selected = names.map((name) => {
-			const matches = input.eligible.filter((reviewer) => reviewer.name === name || reviewer.key === name || reviewerMatchesHint(reviewer, name));
-			if (matches.length === 0) throw new Error(`No eligible configured Wingman reviewer matches ${name}.`);
-			if (matches.length > 1) throw new Error(`Multiple eligible Wingman reviewers match ${name}: ${matches.map((reviewer) => reviewer.key).join(", ")}.`);
-			return matches[0];
-		});
-		return dedupeReviewers(selected);
+		return dedupeReviewers(names.flatMap((name) => selectByHint(input.eligible, name, "")));
 	}
 	const hint = input.hint?.trim();
-	if (hint) {
-		const matches = input.eligible.filter((reviewer) => reviewerMatchesHint(reviewer, hint));
-		if (matches.length === 0) throw new Error(`No eligible configured Wingman reviewer matches hint ${hint}.`);
-		if (matches.length > 1) throw new Error(`Multiple eligible Wingman reviewers match hint ${hint}: ${matches.map((reviewer) => reviewer.key).join(", ")}.`);
-		return matches;
-	}
+	if (hint) return selectByHint(input.eligible, hint, "hint");
 	return input.eligible;
 }
 

@@ -62,6 +62,11 @@ test("ambiguous hints fail closed", () => {
 	assert.throws(() => selectReviewers({ eligible, hint: "opus" }), /Multiple eligible Wingman reviewers match hint/);
 });
 
+test("exact configured reviewer name wins before fuzzy model matching", () => {
+	const eligible = resolveConfiguredReviewers(config("same-model"), allModels, undefined);
+	assert.deepEqual(selectReviewers({ eligible, hint: "opus47" }).map((reviewer) => reviewer.name), ["opus47"]);
+});
+
 test("configured reviewer models must exist in registry", () => {
 	assert.throws(() => resolveConfiguredReviewers(config("same-model"), registry([{ provider: "google", id: "gemini-2.5-pro" }]), undefined), /not available to Pi/);
 });

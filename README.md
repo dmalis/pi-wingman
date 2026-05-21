@@ -7,8 +7,8 @@ Wingman lets your active coding model ask configured reviewer models for a secon
 ## Features
 
 - `/wingman` smart audit command
-- `/wingman:setup` project-local reviewer setup UI
-- Native Pi TUI model picker with checkbox selection and alias editing
+- `/wingman:setup` project-local guided setup wizard
+- Native Pi TUI model picker with checkbox selection
 - Configured reviewers only — no model guessing or hidden fallbacks
 - Current model/provider exclusion policy
 - Parallel reviewer execution with cancellable progress UI
@@ -46,14 +46,13 @@ Run once per project:
 /wingman:setup
 ```
 
-The setup UI lets you:
+The setup wizard lets you:
 
-- select reviewer models
-- edit reviewer aliases with `e`
-- toggle exclusion policy with `p`
-- choose default reviewer behavior with `d`
-- adjust max consensus rounds with `+` / `-`
-- toggle optional logging with `l`
+- select reviewer models with a multi-check picker
+- optionally edit reviewer aliases
+- choose the exclusion policy
+- choose default reviewer behavior
+- configure advanced logging and consensus round settings
 
 Project config is stored in:
 
@@ -76,14 +75,29 @@ This file contains only reviewer aliases and provider/model IDs. It does not con
 Natural language triggers also work:
 
 ```text
-ask wingman
-audit with codex
-ask gemini find consensus
+ask wingman to review this
+audit with codex: is this plan safe?
+ask gemini to check this
+ask all wingmen
+run all reviewers
 second opinion on this
 sanity check with deepseek
 ```
 
-Reviewer names come from your project config. For example, `audit with codex` only works if you configured a reviewer alias matching `codex`.
+Reviewer hints are resolved only against configured reviewers. Exact configured aliases win first; provider/model text and aliases like `codex`, `gemini`, and `claude` only work when they match your config. For example, `ask gemini to check this` requires a configured reviewer named `gemini` or a configured provider/model containing `gemini`; Wingman will not invent a Gemini reviewer automatically.
+
+Minimal config snippet for that alias:
+
+```json
+{
+  "name": "gemini",
+  "provider": "google",
+  "model": "gemini-3-flash-preview",
+  "thinking": "high"
+}
+```
+
+Ambiguous or unknown hints fail closed instead of silently falling back to arbitrary models. Help/setup/config phrases and negated requests such as `do not use wingman` are ignored.
 
 ## Behavior
 
@@ -115,7 +129,7 @@ The main agent should then stop and wait for confirmation before changing files,
     {
       "name": "opus",
       "provider": "anthropic",
-      "model": "claude-opus-4-6",
+      "model": "claude-opus-4-1",
       "thinking": "high"
     },
     {
