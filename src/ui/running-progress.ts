@@ -69,18 +69,8 @@ export async function withRunningProgress<T>(ctx: { hasUI?: boolean; ui: any }, 
 
 		function updateChrome() {
 			const c = counts();
-			const elapsed = formatDuration(Date.now() - runStartedAt);
 			const active = c.running > 0 ? `${c.running} running` : c.ok + c.failed + c.cancelled === c.total ? "complete" : "starting";
-			ctx.ui.setStatus?.("wingman", `🪽 wingman ${c.ok}/${c.total} ok${c.failed ? ` · ${c.failed} failed` : ""}${c.cancelled ? ` · ${c.cancelled} cancelled` : ""} · ${active} · ${elapsed}`);
-			ctx.ui.setWidget?.("wingman", [
-				`🪽 Wingman reviewing ${input.context.label}`,
-				`${input.context.backend} backend · ${elapsed} · Esc cancels remaining reviewers`,
-				...values().map((progress) => {
-					const duration = reviewerDuration(progress, reviewerStartedAt);
-					const detail = progress.error ?? progress.summary?.replace(/\s+/g, " ").slice(0, 90) ?? progress.status;
-					return `${statusIcon(progress.status)} ${progress.reviewer.name} ${duration ? `· ${duration}` : ""} · ${detail}`;
-				}),
-			], { placement: "belowEditor" });
+			ctx.ui.setStatus?.("wingman", `wingman ${c.ok}/${c.total} ok${c.failed ? ` · ${c.failed} failed` : ""}${c.cancelled ? ` · ${c.cancelled} cancelled` : ""} · ${active}`);
 		}
 
 		function update(progress: ReviewerProgress) {
@@ -93,7 +83,6 @@ export async function withRunningProgress<T>(ctx: { hasUI?: boolean; ui: any }, 
 		function clearChrome() {
 			if (timer) clearInterval(timer);
 			ctx.ui.setStatus?.("wingman", undefined);
-			ctx.ui.setWidget?.("wingman", undefined);
 		}
 
 		function finish<R>(value: R): R {
