@@ -1,6 +1,6 @@
 {
   "name": "pi-wingman",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Standalone Wingman reviewer extension for Pi",
   "type": "module",
   "exports": {

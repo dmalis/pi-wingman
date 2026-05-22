@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { readFile, realpath } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { WingmanContextPack, WingmanTarget } from "../types.ts";
 import { collectBranchContext, collectWorkingTreeContext, getGitState, type ExecLike } from "./git-context.ts";
@@ -17,14 +17,28 @@ function section(title: string, body: string): string {
 	return [`## ${title}`, "", body.trim() || "(none)", ""].join("\n");
 }
 
+function tokenizePathList(value: string): string[] {
+	const tokens = [...value.matchAll(/"([^"]+)"|'([^']+)'|`([^`]+)`|(\S+)/g)].map((match) => match[1] ?? match[2] ?? match[3] ?? match[4] ?? "");
+	const paths: string[] = [];
+	for (const raw of tokens) {
+		const item = raw.trim().replace(/^[,;]+|[,;]+$/g, "");
+		if (!item) continue;
+		const lower = item.toLowerCase();
+		if (["and", "or", "&"].includes(lower)) continue;
+		if (["for", "with", "using", "via", "because", "about", "please", "to"].includes(lower)) break;
+		paths.push(item);
+	}
+	return paths;
+}
+
 function parseExplicitTarget(request: string): WingmanTarget | undefined {
 	const commit = request.match(/\bcommit\s+([0-9a-f]{6,40})\b/i);
 	if (commit) return { type: "commit", sha: commit[1], confidence: "high" };
 	const branch = request.match(/\b(?:branch|base)\s+([\w./:@-]+)\b/i);
 	if (branch) return { type: "branch-diff", base: branch[1], confidence: "high" };
-	const files = request.match(/\b(?:files?|folders?|paths?)\s+(.+)$/i);
+	const files = request.match(/\b(?:files?|folders?|paths?)\s*:?\s+(.+)$/i);
 	if (files) {
-		const paths = files[1].split(/[\s,]+/).map((item) => item.trim()).filter(Boolean).filter((item) => !/^with$/i.test(item));
+		const paths = tokenizePathList(files[1]);
 		if (paths.length > 0) return { type: "files", paths, confidence: "high" };
 	}
 	if (/\b(diff|changes|working tree|uncommitted)\b/i.test(request)) return { type: "working-tree", confidence: "medium" };
@@ -43,10 +57,31 @@ function targetLabel(target: WingmanTarget): string {
 	}
 }
 
+function isWithinRoot(root: string, path: string): boolean {
+	const rel = relative(root, path);
+	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+async function safeProjectRoot(cwd: string): Promise<string> {
+	return realpath(cwd).catch(() => resolve(cwd));
+}
+
+async function safeFilePath(root: string, rawPath: string): Promise<string | undefined> {
+	const candidate = resolve(root, rawPath);
+	if (!isWithinRoot(root, candidate)) return undefined;
+	const actual = await realpath(candidate).catch(() => candidate);
+	return isWithinRoot(root, actual) ? actual : undefined;
+}
+
 async function collectFileContext(cwd: string, paths: string[]): Promise<string> {
+	const root = await safeProjectRoot(cwd);
 	const parts = [];
 	for (const rawPath of paths.slice(0, 20)) {
-		const path = resolve(cwd, rawPath);
+		const path = await safeFilePath(root, rawPath);
+		if (!path) {
+			parts.push(section(rawPath, "(skipped: path escapes project root)"));
+			continue;
+		}
 		try {
 			const content = await readFile(path);
 			if (content.includes(0)) {
@@ -110,7 +145,7 @@ export async function inferWingmanContext(input: {
 		targetContent = collected.content;
 		large = collected.large;
 	} else if (target.type === "files") {
-		targetContent = await collectFileContext(input.cwd, target.paths);
+		targetContent = await collectFileContext(git.root || input.cwd, target.paths);
 	} else if (target.type === "current-plan") {
 		targetContent = section("Plan", target.text);
 	} else if (target.type === "last-turn") {

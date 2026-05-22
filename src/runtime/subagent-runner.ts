@@ -1,4 +1,4 @@
-import { createAgentSession, createExtensionRuntime, createReadOnlyTools, type ResourceLoader } from "@earendil-works/pi-coding-agent";
+import { createAgentSession, createExtensionRuntime, createReadOnlyTools, SessionManager, type ResourceLoader } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import type { ResolvedReviewer, ReviewerResult, WingmanContextPack } from "../types.ts";
 import { buildSubagentPrompt, summarizeReviewerOutput } from "../review/prompts.ts";
@@ -48,19 +48,24 @@ export async function runSubagentReviewer(input: {
 			thinkingLevel: input.reviewer.thinking === "off" ? undefined : input.reviewer.thinking,
 			tools,
 			resourceLoader: createCleanResourceLoader(),
+			sessionManager: SessionManager.inMemory(input.context.cwd),
 		});
-		if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", backend: "subagent", prompt, error: "aborted" };
-		const abort = () => session.abort?.();
-		input.signal?.addEventListener("abort", abort, { once: true });
 		try {
-			await session.prompt(prompt, { source: "extension" });
+			if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", backend: "subagent", prompt, error: "aborted" };
+			const abort = () => void session.abort?.();
+			input.signal?.addEventListener("abort", abort, { once: true });
+			try {
+				await session.prompt(prompt, { source: "extension" });
+			} finally {
+				input.signal?.removeEventListener("abort", abort);
+			}
+			if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", backend: "subagent", prompt, error: "aborted" };
+			const output = finalAssistantText(session).trim();
+			if (!output) throw new Error("subagent returned no assistant text");
+			return { reviewer: input.reviewer, status: "ok", backend: "subagent", prompt, output, summary: summarizeReviewerOutput(output) };
 		} finally {
-			input.signal?.removeEventListener("abort", abort);
+			session.dispose();
 		}
-		if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", backend: "subagent", prompt, error: "aborted" };
-		const output = finalAssistantText(session).trim();
-		if (!output) throw new Error("subagent returned no assistant text");
-		return { reviewer: input.reviewer, status: "ok", backend: "subagent", prompt, output, summary: summarizeReviewerOutput(output) };
 	} catch (error) {
 		if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", backend: "subagent", prompt, error: "aborted" };
 		return { reviewer: input.reviewer, status: "failed", backend: "subagent", prompt, error: error instanceof Error ? error.message : String(error) };
