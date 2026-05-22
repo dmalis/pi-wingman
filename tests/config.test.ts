@@ -9,7 +9,6 @@ test("config applies defaults and keeps commit-friendly fields", () => {
 	assert.equal(config.version, 1);
 	assert.equal(config.exclude, defaultWingmanConfig.exclude);
 	assert.equal(config.defaultReviewers, "all-eligible");
-	assert.deepEqual(config.logging, { enabled: false, raw: false });
 	assert.deepEqual(config.reviewers, [baseReviewer]);
 });
 

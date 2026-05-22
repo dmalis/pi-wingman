@@ -8,7 +8,6 @@ import { showRunPreflight } from "./ui/run-preflight.ts";
 import { withRunningProgress } from "./ui/running-progress.ts";
 import { runParallelWingmen } from "./runtime/parallel.ts";
 import { formatWingmanRunResult } from "./ui/render.ts";
-import { appendWingmanLog } from "./storage/logs.ts";
 import type { ResolvedReviewer, WingmanConfig, WingmanRunInput, WingmanRunResult } from "./types.ts";
 
 export type WingmanContext = Pick<ExtensionContext, "cwd" | "hasUI" | "ui" | "model" | "modelRegistry" | "sessionManager" | "signal">;
@@ -113,6 +112,5 @@ export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: W
 		durationMs: Date.now() - startedAt,
 	};
 	const result: WingmanRunResult = { ...base, text: formatWingmanRunResult(base) };
-	await appendWingmanLog(ctx.cwd, config, result).catch((error) => ctx.ui.notify?.(`Wingman log failed: ${error instanceof Error ? error.message : String(error)}`, "warning"));
 	return result;
 }

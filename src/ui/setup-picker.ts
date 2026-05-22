@@ -45,7 +45,6 @@ function buildConfig(current: WingmanConfig, models: ModelListItem[], selected: 
 		exclude: overrides.exclude ?? current.exclude,
 		defaultReviewers: overrides.defaultReviewers ?? current.defaultReviewers,
 		maxParallelReviewers: current.maxParallelReviewers,
-		logging: overrides.logging ?? current.logging,
 		reviewers,
 	};
 }
@@ -165,7 +164,6 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 
 	let exclude = current.exclude;
 	let defaultReviewers = current.defaultReviewers;
-	let logging = { ...current.logging };
 
 	const policyChoice = await ctx.ui.select("Independence policy", [
 		"Strongest: exclude same provider",
@@ -181,21 +179,14 @@ export async function showSetupPicker(ctx: { cwd: string; hasUI?: boolean; ui: a
 	if (!defaultChoice) return undefined;
 	defaultReviewers = (String(defaultChoice).startsWith("Use all") ? "all-eligible" : "ask") as DefaultReviewers;
 
-	const advanced = await ctx.ui.confirm("Advanced settings", "Configure logging?", { timeout: 15000 });
-	if (advanced) {
-		const loggingChoice = await ctx.ui.select("Logging", ["Off", "Summary logs", "Raw logs"]);
-		if (!loggingChoice) return undefined;
-		logging = String(loggingChoice).startsWith("Off") ? { enabled: false, raw: false } : { enabled: true, raw: String(loggingChoice).startsWith("Raw") };
-	}
-
-	const next = buildConfig(current, models, selected, aliases, existing, { exclude, defaultReviewers, logging });
+	const next = buildConfig(current, models, selected, aliases, existing, { exclude, defaultReviewers });
 	const dupes = duplicateAliases(next.reviewers);
 	if (dupes.length > 0) {
 		ctx.ui.notify(`Duplicate aliases: ${dupes.join(", ")}`, "error");
 		return undefined;
 	}
 
-	const summary = `Reviewers: ${next.reviewers.map((r) => r.name).join(", ")}\nPolicy: ${next.exclude}\nDefault: ${next.defaultReviewers}\nLogging: ${next.logging.enabled ? next.logging.raw ? "raw" : "summary" : "off"}`;
+	const summary = `Reviewers: ${next.reviewers.map((r) => r.name).join(", ")}\nPolicy: ${next.exclude}\nDefault: ${next.defaultReviewers}`;
 	const save = await ctx.ui.confirm("Save Wingman setup?", summary);
 	return save ? next : undefined;
 }

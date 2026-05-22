@@ -12,17 +12,11 @@ export type WingmanReviewerConfig = {
 	thinking?: ModelThinkingLevel;
 };
 
-export type WingmanLoggingConfig = {
-	enabled: boolean;
-	raw: boolean;
-};
-
 export type WingmanConfig = {
 	version: 1;
 	exclude: ExclusionPolicy;
 	defaultReviewers: DefaultReviewers;
 	maxParallelReviewers: number;
-	logging: WingmanLoggingConfig;
 	reviewers: WingmanReviewerConfig[];
 };
 

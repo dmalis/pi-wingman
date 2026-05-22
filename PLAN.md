@@ -45,21 +45,6 @@ Default state should be minimal:
   config.json
 ```
 
-Optional logging can be enabled later:
-
-```text
-.wingman/
-  config.json
-  logs/
-    2026-05-17.jsonl
-```
-
-Raw reviewer output should be off by default. If raw logging exists, it should be easy to ignore:
-
-```gitignore
-.wingman/logs/
-```
-
 ## Config shape
 
 Project-local config only:
@@ -71,10 +56,6 @@ Project-local config only:
   "defaultReviewers": "all-eligible",
   "maxRounds": 3,
   "maxParallelReviewers": 4,
-  "logging": {
-    "enabled": false,
-    "raw": false
-  },
   "reviewers": [
     {
       "name": "codex",
@@ -385,8 +366,6 @@ src/
     prompts.ts
     consensus.ts
     summarize.ts
-  storage/
-    logs.ts
   types.ts
 tests/
   config.test.ts
@@ -405,7 +384,7 @@ Completed for the standalone extension:
 - Reviewer config validation with required unique slug-style aliases.
 - Runtime reviewer/model validation against Pi's available model registry.
 - Runtime same-provider / same-model exclusion, with exact same model always excluded.
-- Native Pi TUI `/wingman:setup` model picker with alias editing, policy toggle, default reviewer mode toggle, rounds, and logging controls.
+- Native Pi TUI `/wingman:setup` model picker with alias editing, policy toggle, default reviewer mode toggle, and rounds controls.
 - Smart context inference from recent session, plans/questions, explicit files/branches/commits, working tree, and branch diffs.
 - Context pack building with bounded direct context and large-context routing to subagent backend.
 - Direct reviewer runner via `complete()`.
@@ -414,7 +393,6 @@ Completed for the standalone extension:
 - Consensus loop with multiple rounds up to `maxRounds` and stop conditions.
 - Natural-language trigger parsing using configured reviewer hints.
 - Tool API and custom tool rendering.
-- Optional JSONL logging without modifying `.gitignore`.
 - Automatic main-agent handoff for synthesis, with explicit stop-and-wait-for-user-confirmation instruction.
 - Node test suite for core logic.
 
@@ -453,8 +431,7 @@ Validation commands pass:
 11. `/wingman:setup` should allow editing reviewer aliases directly. Press `e` on a selected model to edit its alias, because aliases are part of the daily UX (`audit with opus`, `ask ds`).
 12. Reviewer aliases must be slug-style only: `[a-z0-9._-]+`. Display labels can be pretty, but aliases should be command-friendly and unambiguous.
 13. Do not add project-specific reviewer instruction files such as `.wingman/INSTRUCTIONS.md`. Keep reviewer behavior global/built-in for now; project-local state should stay focused on config.
-14. `/wingman:setup` must not modify `.gitignore` automatically. If logs are enabled, users decide themselves whether to ignore or track `.wingman/logs/`.
-15. `.wingman/config.json` is project-shared and commit-friendly. It contains no secrets, only reviewer aliases and provider/model IDs. Local auth remains in Pi auth/settings outside the project.
+14. `.wingman/config.json` is project-shared and commit-friendly. It contains no secrets, only reviewer aliases and provider/model IDs. Local auth remains in Pi auth/settings outside the project.
 
 ## Current implementation checkpoint
 

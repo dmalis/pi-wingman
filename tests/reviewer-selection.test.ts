@@ -20,7 +20,6 @@ function config(exclude: WingmanConfig["exclude"]): WingmanConfig {
 		exclude,
 		defaultReviewers: "all-eligible",
 		maxParallelReviewers: 4,
-		logging: { enabled: false, raw: false },
 		reviewers: [
 			{ name: "opus46", provider: "anthropic", model: "claude-opus-4.6" },
 			{ name: "opus47", provider: "anthropic", model: "claude-opus-4.7" },

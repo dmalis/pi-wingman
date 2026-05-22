@@ -16,7 +16,6 @@ Wingman lets your active coding model ask configured reviewer models for a secon
 - Hybrid execution:
   - direct model calls for focused conversation/plan reviews
   - clean read-only Pi subagents for larger repo/diff reviews
-- Optional project-local JSONL logging
 
 ## Install
 
@@ -54,7 +53,6 @@ The setup wizard lets you:
 - optionally edit reviewer aliases
 - choose the exclusion policy
 - choose default reviewer behavior
-- configure optional logging
 
 Project config is stored in:
 
@@ -122,10 +120,6 @@ The main agent should then stop and wait for confirmation before changing files,
   "exclude": "same-provider",
   "defaultReviewers": "all-eligible",
   "maxParallelReviewers": 4,
-  "logging": {
-    "enabled": false,
-    "raw": false
-  },
   "reviewers": [
     {
       "name": "opus",

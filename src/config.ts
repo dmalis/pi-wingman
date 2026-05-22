@@ -29,7 +29,6 @@ export const defaultWingmanConfig: WingmanConfig = {
 	exclude: "same-provider",
 	defaultReviewers: "all-eligible",
 	maxParallelReviewers: 4,
-	logging: { enabled: false, raw: false },
 	reviewers: [],
 };
 
@@ -73,7 +72,6 @@ function validateUniqueAliases(reviewers: WingmanReviewerConfig[]): void {
 
 export function normalizeConfig(raw: unknown): WingmanConfig {
 	const obj = asObject(raw) ?? {};
-	const logging = asObject(obj.logging) ?? {};
 	const reviewers = Array.isArray(obj.reviewers)
 		? obj.reviewers.map(normalizeReviewer).filter((item): item is WingmanReviewerConfig => Boolean(item))
 		: [];
@@ -85,7 +83,6 @@ export function normalizeConfig(raw: unknown): WingmanConfig {
 		exclude,
 		defaultReviewers,
 		maxParallelReviewers: numberValue(obj.maxParallelReviewers, defaultWingmanConfig.maxParallelReviewers, 1, 16),
-		logging: { enabled: Boolean(logging.enabled), raw: Boolean(logging.raw) },
 		reviewers,
 	};
 }
@@ -95,7 +92,7 @@ export async function readWingmanConfig(cwd: string): Promise<WingmanConfig> {
 		const text = await readFile(configPath(cwd), "utf8");
 		return normalizeConfig(JSON.parse(text));
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ...defaultWingmanConfig, logging: { ...defaultWingmanConfig.logging }, reviewers: [] };
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ...defaultWingmanConfig, reviewers: [] };
 		throw error;
 	}
 }
