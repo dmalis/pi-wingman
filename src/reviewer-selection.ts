@@ -22,14 +22,14 @@ function isExcluded(reviewer: WingmanReviewerConfig, current: CurrentModel, poli
 }
 
 export function resolveConfiguredReviewers(config: WingmanConfig, registry: ModelRegistryLike, current: CurrentModel): ResolvedReviewer[] {
-	if (config.reviewers.length === 0) throw new Error("Wingman reviewers are not configured. Run /wingman:setup first.");
+	if (config.reviewers.length === 0) throw new Error("Wingman reviewers are not configured. Run /wingman setup first.");
 	const seen = new Set<string>();
 	const validated = config.reviewers.map((reviewer) => {
 		const key = reviewerKey(reviewer);
 		if (seen.has(key)) throw new Error(`Duplicate Wingman reviewer configured: ${key}`);
 		seen.add(key);
 		const modelRef = registry.find(reviewer.provider, reviewer.model);
-		if (!modelRef) throw new Error(`Configured Wingman reviewer ${key} is not available to Pi. Run /wingman:setup to refresh project config.`);
+		if (!modelRef) throw new Error(`Configured Wingman reviewer ${key} is not available to Pi. Run /wingman setup to refresh project config.`);
 		return {
 			...reviewer,
 			modelRef,
@@ -42,7 +42,7 @@ export function resolveConfiguredReviewers(config: WingmanConfig, registry: Mode
 	const selected = validated.filter((reviewer) => !isExcluded(reviewer, current, config.exclude));
 	if (selected.length === 0) {
 		const currentLabel = current ? modelKey(current.provider, current.id) : "the current model";
-		throw new Error(`No eligible Wingman reviewers remain after excluding ${config.exclude === "same-provider" ? "current provider" : "current model"} (${currentLabel}). Run /wingman:setup or switch models.`);
+		throw new Error(`No eligible Wingman reviewers remain after excluding ${config.exclude === "same-provider" ? "current provider" : "current model"} (${currentLabel}). Run /wingman setup or switch models.`);
 	}
 	return selected;
 }

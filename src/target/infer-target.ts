@@ -109,6 +109,9 @@ export async function inferWingmanContext(input: {
 	if (!target && genericRequest && lastAssistant) {
 		target = { type: "last-turn", text: bound(lastAssistant, 16000), confidence: "medium" };
 	}
+	if (!target && lastAssistant) {
+		target = { type: "last-turn", text: bound(lastAssistant, 16000), confidence: "medium" };
+	}
 	if (!target) {
 		target = { type: "freeform", focus: request || "Provide an independent second opinion on the current context.", confidence: "low" };
 	}

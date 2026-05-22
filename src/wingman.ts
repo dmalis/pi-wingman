@@ -43,7 +43,7 @@ export async function setupWingman(pi: ExtensionAPI, ctx: WingmanCommandContext)
 	const config = await readWingmanConfig(ctx.cwd);
 	const models = listAvailableModelItems(ctx.modelRegistry as unknown as ModelRegistryLike);
 	if (models.length === 0) {
-		ctx.ui.notify("No authenticated Pi models are available. Configure providers first, then rerun /wingman:setup.", "error");
+		ctx.ui.notify("No authenticated Pi models are available. Configure providers first, then rerun /wingman setup.", "error");
 		return;
 	}
 	const next = await showSetupPicker(ctx, models, config);
@@ -58,11 +58,11 @@ export async function setupWingman(pi: ExtensionAPI, ctx: WingmanCommandContext)
 export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: WingmanRunInput): Promise<WingmanRunResult> {
 	if (!hasWingmanConfig(ctx.cwd)) {
 		if (input.interactive && ctx.hasUI) {
-			ctx.ui.notify("Wingman is not configured for this project. Opening /wingman:setup first.", "info");
+			ctx.ui.notify("Wingman is not configured for this project. Opening setup first.", "info");
 			await setupWingman(pi, ctx);
-			if (!hasWingmanConfig(ctx.cwd)) throw new Error("Wingman setup was cancelled. Run /wingman:setup before /wingman.");
+			if (!hasWingmanConfig(ctx.cwd)) throw new Error("Wingman setup was cancelled. Run /wingman setup before /wingman.");
 		} else {
-			throw new Error("Wingman is not configured for this project. Run /wingman:setup first, then retry /wingman.");
+			throw new Error("Wingman is not configured for this project. Run /wingman setup first, then retry /wingman.");
 		}
 	}
 	const config = await readWingmanConfig(ctx.cwd);
@@ -75,6 +75,11 @@ export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: W
 
 	if (shouldShowPreflight(config, { ...input, reviewerHint }, context.target.confidence, selected)) {
 		const preflight = await showRunPreflight(ctx, { context, reviewers: eligible, request });
+		if (preflight.action === "setup") {
+			await setupWingman(pi, ctx);
+			const cancelled: Omit<WingmanRunResult, "text"> = { request, mode: context.mode, target: context.target, targetLabel: context.label, rounds: 0, cancelled: true, results: [] };
+			return { ...cancelled, text: formatWingmanRunResult(cancelled) };
+		}
 		if (preflight.action === "cancel") {
 			const cancelled: Omit<WingmanRunResult, "text"> = { request, mode: context.mode, target: context.target, targetLabel: context.label, rounds: 0, cancelled: true, results: [] };
 			return { ...cancelled, text: formatWingmanRunResult(cancelled) };

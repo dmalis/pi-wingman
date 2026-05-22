@@ -7,7 +7,7 @@ Wingman lets your active coding model ask configured reviewer models for a secon
 ## Features
 
 - `/wingman` smart audit command
-- `/wingman:setup` project-local guided setup wizard
+- `/wingman setup` project-local guided setup wizard
 - Native Pi TUI model picker with checkbox selection
 - Configured reviewers only — no model guessing or hidden fallbacks
 - Current model/provider exclusion policy
@@ -43,8 +43,10 @@ Reload or restart Pi after installing:
 Run once per project:
 
 ```text
-/wingman:setup
+/wingman setup
 ```
+
+If you run `/wingman` before configuring reviewers, Wingman opens setup automatically.
 
 The setup wizard lets you:
 
@@ -66,6 +68,7 @@ This file contains only reviewer aliases and provider/model IDs. It does not con
 
 ```text
 /wingman
+/wingman setup
 /wingman audit this plan
 /wingman codex find consensus
 /wingman challenge the auth design

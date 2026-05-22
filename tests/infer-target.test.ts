@@ -47,13 +47,20 @@ test("target inference detects current plan before git state", async () => {
 	assert.equal(context.backend, "direct");
 });
 
-test("target inference treats explicit freeform focus as the target", async () => {
+test("target inference uses explicit chat focus to review latest assistant answer", async () => {
 	const context = await inferWingmanContext({ pi: repoPi(" M src/file.ts\n"), cwd: "/repo", request: "vite or grunt", session: session("Implementation plan\n1. implement change\n2. test it\n3. verify behavior") });
+	assert.equal(context.target.type, "last-turn");
+	assert.equal(context.label, "latest assistant turn");
+	assert.match(context.content, /## User Request\n\nvite or grunt/);
+	assert.match(context.content, /## Recent Conversation/);
+	assert.match(context.content, /Implementation plan/);
+});
+
+test("target inference treats explicit request without chat as freeform", async () => {
+	const context = await inferWingmanContext({ pi: repoPi(" M src/file.ts\n"), cwd: "/repo", request: "vite or grunt", session: session("") });
 	assert.equal(context.target.type, "freeform");
 	assert.equal(context.label, "freeform request");
 	assert.match(context.content, /## Request\n\nvite or grunt/);
-	assert.doesNotMatch(context.content, /Implementation plan/);
-	assert.doesNotMatch(context.content, /Recent Conversation/);
 });
 
 test("target inference detects dirty working tree before branch diff", async () => {
