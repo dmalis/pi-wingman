@@ -93,6 +93,7 @@ export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: W
 	}
 
 	const parallel = Math.max(1, Math.min(config.maxParallelReviewers, selected.length));
+	const startedAt = Date.now();
 	const runnerResult = await withRunningProgress(ctx, { context, reviewers: selected }, async (progress) => {
 		return runParallelWingmen({
 			ctx: { modelRegistry: ctx.modelRegistry as never, signal: progress.signal },
@@ -109,6 +110,7 @@ export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: W
 		targetLabel: context.label,
 		cancelled: runnerResult.cancelled,
 		results: runnerResult.results,
+		durationMs: Date.now() - startedAt,
 	};
 	const result: WingmanRunResult = { ...base, text: formatWingmanRunResult(base) };
 	await appendWingmanLog(ctx.cwd, config, result).catch((error) => ctx.ui.notify?.(`Wingman log failed: ${error instanceof Error ? error.message : String(error)}`, "warning"));

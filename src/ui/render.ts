@@ -1,9 +1,18 @@
 import type { ReviewerResult, WingmanRunResult } from "../types.ts";
 
+function formatDuration(ms: number | undefined): string | undefined {
+	if (ms === undefined) return undefined;
+	if (ms < 1000) return `${ms}ms`;
+	if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+	return `${(ms / 60_000).toFixed(1)}m`;
+}
+
 function statusLine(result: ReviewerResult): string {
 	const icon = result.status === "ok" ? "[ok]" : result.status === "failed" ? "[failed]" : "[cancelled]";
+	const duration = formatDuration(result.durationMs);
+	const timing = duration ? `, ${duration}` : "";
 	const detail = result.status === "ok" ? "returned review output" : result.error ?? result.status;
-	return `- ${icon} ${result.reviewer.name} (${result.reviewer.key}, ${result.backend}): ${detail}`;
+	return `- ${icon} ${result.reviewer.name} (${result.reviewer.key}, ${result.backend}${timing}): ${detail}`;
 }
 
 export function formatWingmanRunResult(input: Omit<WingmanRunResult, "text">): string {
@@ -13,8 +22,9 @@ export function formatWingmanRunResult(input: Omit<WingmanRunResult, "text">): s
 	const latestOk = new Map<string, ReviewerResult>();
 	for (const result of ok) latestOk.set(result.reviewer.key, result);
 	const latest = Array.from(latestOk.values());
+	const duration = formatDuration(input.durationMs);
 	return [
-		`Wingman complete: ${ok.length} ok / ${failed.length} failed / ${cancelled.length} cancelled`,
+		`Wingman complete: ${ok.length} ok / ${failed.length} failed / ${cancelled.length} cancelled${duration ? ` in ${duration}` : ""}`,
 		`Target: ${input.targetLabel}${input.cancelled ? " (cancelled)" : ""}`,
 		"",
 		"Reviewer status:",

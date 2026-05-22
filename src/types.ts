@@ -58,6 +58,7 @@ export type ReviewerProgress = {
 	status: ReviewerStatus;
 	summary?: string;
 	error?: string;
+	durationMs?: number;
 };
 
 export type ReviewerResult = {
@@ -68,6 +69,7 @@ export type ReviewerResult = {
 	output?: string;
 	summary?: string;
 	error?: string;
+	durationMs?: number;
 };
 
 export type WingmanRunInput = {
@@ -84,6 +86,7 @@ export type WingmanRunResult = {
 	targetLabel: string;
 	cancelled: boolean;
 	results: ReviewerResult[];
+	durationMs?: number;
 	text: string;
 };
 

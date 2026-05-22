@@ -24,6 +24,13 @@ function resultContent(result: WingmanRunResult) {
 	return [{ type: "text" as const, text: result.text }];
 }
 
+function formatDuration(ms: number | undefined): string | undefined {
+	if (ms === undefined) return undefined;
+	if (ms < 1000) return `${ms}ms`;
+	if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+	return `${(ms / 60_000).toFixed(1)}m`;
+}
+
 export default function wingmanExtension(pi: ExtensionAPI) {
 	pi.registerCommand("wingman", {
 		description: "Ask configured Wingman reviewers for an independent second opinion",
@@ -67,13 +74,18 @@ export default function wingmanExtension(pi: ExtensionAPI) {
 			const hint = typeof args.reviewerHint === "string" ? ` via ${args.reviewerHint}` : "";
 			return new Text(theme.fg("toolTitle", "Wingman ") + theme.fg("muted", `${request}${hint}`), 0, 0);
 		},
-		renderResult(result, _options, theme) {
+		renderResult(result, { expanded }, theme) {
 			const details = result.details as WingmanRunResult | undefined;
-			if (!details) return new Text(result.content.map((part) => part.type === "text" ? part.text : "").join("\n"), 0, 0);
+			const body = result.content.map((part) => part.type === "text" ? part.text : "").join("\n");
+			if (!details) return new Text(body, 0, 0);
 			const ok = details.results.filter((item) => item.status === "ok").length;
 			const failed = details.results.filter((item) => item.status === "failed").length;
 			const cancelled = details.results.filter((item) => item.status === "cancelled").length;
-			return new Text(theme.fg(ok > 0 ? "success" : "warning", `Wingman ${ok} ok / ${failed} failed / ${cancelled} cancelled`) + theme.fg("muted", ` • ${details.targetLabel}`), 0, 0);
+			const duration = formatDuration(details.durationMs);
+			const header = theme.fg(ok > 0 ? "success" : failed > 0 ? "error" : "warning", `🪽 Wingman ${ok} ok / ${failed} failed / ${cancelled} cancelled`) + theme.fg("muted", `${duration ? ` · ${duration}` : ""} · ${details.targetLabel}`);
+			if (expanded) return new Text(`${header}\n\n${body}`, 0, 0);
+			const reviewers = details.results.map((item) => `${item.status === "ok" ? "✓" : item.status === "failed" ? "✗" : "⊘"} ${item.reviewer.name}${formatDuration(item.durationMs) ? ` ${formatDuration(item.durationMs)}` : ""}`).join(theme.fg("muted", " · "));
+			return new Text(reviewers ? `${header}\n${theme.fg("dim", reviewers)}` : header, 0, 0);
 		},
 	});
 
