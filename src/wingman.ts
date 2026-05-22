@@ -35,7 +35,7 @@ function shouldShowPreflight(config: WingmanConfig, input: WingmanRunInput, cont
 	if (!input.reviewerHint && productAliasRequest(input.request)) return true;
 	if (config.defaultReviewers === "ask") return true;
 	if (contextConfidence !== "high") return true;
-	if (!input.reviewerHint && selected.length > 1 && /\b(pick|choose|which|consensus|decide)\b/i.test(input.request)) return true;
+	if (!input.reviewerHint && selected.length > 1 && /\b(pick|choose|which|decide)\b/i.test(input.request)) return true;
 	return false;
 }
 
@@ -77,11 +77,11 @@ export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: W
 		const preflight = await showRunPreflight(ctx, { context, reviewers: eligible, request });
 		if (preflight.action === "setup") {
 			await setupWingman(pi, ctx);
-			const cancelled: Omit<WingmanRunResult, "text"> = { request, mode: context.mode, target: context.target, targetLabel: context.label, rounds: 0, cancelled: true, results: [] };
+			const cancelled: Omit<WingmanRunResult, "text"> = { request, target: context.target, targetLabel: context.label, cancelled: true, results: [] };
 			return { ...cancelled, text: formatWingmanRunResult(cancelled) };
 		}
 		if (preflight.action === "cancel") {
-			const cancelled: Omit<WingmanRunResult, "text"> = { request, mode: context.mode, target: context.target, targetLabel: context.label, rounds: 0, cancelled: true, results: [] };
+			const cancelled: Omit<WingmanRunResult, "text"> = { request, target: context.target, targetLabel: context.label, cancelled: true, results: [] };
 			return { ...cancelled, text: formatWingmanRunResult(cancelled) };
 		}
 		selected = preflight.reviewers;
@@ -92,14 +92,12 @@ export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: W
 		reviewerHint = undefined;
 	}
 
-	const maxRounds = context.mode === "consensus" ? Math.max(1, Math.min(10, input.maxRounds ?? config.maxRounds)) : 1;
 	const parallel = Math.max(1, Math.min(config.maxParallelReviewers, selected.length));
-	const runnerResult = await withRunningProgress(ctx, { context, reviewers: selected, maxRounds }, async (progress) => {
+	const runnerResult = await withRunningProgress(ctx, { context, reviewers: selected }, async (progress) => {
 		return runParallelWingmen({
 			ctx: { modelRegistry: ctx.modelRegistry as never, signal: progress.signal },
 			context: { ...context, focus: request },
 			reviewers: selected,
-			maxRounds,
 			maxParallel: parallel,
 			signal: progress.signal,
 			onProgress: progress.update,
@@ -107,10 +105,8 @@ export async function runWingman(pi: ExtensionAPI, ctx: WingmanContext, input: W
 	});
 	const base: Omit<WingmanRunResult, "text"> = {
 		request,
-		mode: context.mode,
 		target: context.target,
 		targetLabel: context.label,
-		rounds: runnerResult.rounds,
 		cancelled: runnerResult.cancelled,
 		results: runnerResult.results,
 	};

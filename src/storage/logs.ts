@@ -14,9 +14,7 @@ export async function appendWingmanLog(cwd: string, config: WingmanConfig, resul
 	const entry = {
 		time: new Date().toISOString(),
 		request: result.request,
-		mode: result.mode,
 		target: result.targetLabel,
-		rounds: result.rounds,
 		cancelled: result.cancelled,
 		reviewers: result.results.map((item) => ({ name: item.reviewer.name, model: item.reviewer.key, status: item.status, error: item.error, summary: item.summary, raw: config.logging.raw ? item.output : undefined })),
 	};

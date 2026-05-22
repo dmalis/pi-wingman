@@ -7,11 +7,10 @@ import { runWingman, setupWingman } from "../src/wingman.ts";
 import type { WingmanRunResult } from "../src/types.ts";
 
 const WingmanParams = Type.Object({
-	request: Type.Optional(Type.String({ description: "What Wingman should audit, decide, challenge, or diagnose. Use 'auto' or omit for current context." })),
+	request: Type.Optional(Type.String({ description: "What Wingman should review. Use 'auto' or omit for current context." })),
 	reviewerHint: Type.Optional(Type.String({ description: "Configured reviewer hint such as codex, gemini, claude, or an exact configured reviewer name." })),
 	target: Type.Optional(Type.String({ description: "Optional target hint: auto, working-tree, branch, plan, last-turn, files." })),
 	reviewers: Type.Optional(Type.Array(Type.String(), { description: "Exact configured reviewer names or provider/model keys to run." })),
-	maxRounds: Type.Optional(Type.Number({ description: "Maximum consensus rounds for consensus mode." })),
 });
 
 type WingmanParams = {
@@ -19,7 +18,6 @@ type WingmanParams = {
 	reviewerHint?: string;
 	target?: string;
 	reviewers?: string[];
-	maxRounds?: number;
 };
 
 function resultContent(result: WingmanRunResult) {
@@ -28,7 +26,7 @@ function resultContent(result: WingmanRunResult) {
 
 export default function wingmanExtension(pi: ExtensionAPI) {
 	pi.registerCommand("wingman", {
-		description: "Ask configured Wingman reviewers for an independent audit, consensus, or rescue diagnosis",
+		description: "Ask configured Wingman reviewers for an independent second opinion",
 		handler: async (args, ctx) => {
 			const request = args.trim();
 			if (/^(setup|config|configure)$/i.test(request)) {
@@ -46,10 +44,10 @@ export default function wingmanExtension(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "wingman",
 		label: "Wingman",
-		description: "Run configured independent Wingman reviewer models in parallel for audits, consensus, or rescue diagnosis.",
+		description: "Run configured independent Wingman reviewer models in parallel for second opinions.",
 		promptSnippet: "Ask configured independent reviewer models for a second opinion",
 		promptGuidelines: [
-			"Use wingman when the user asks for Wingman, a second opinion, consensus, or an audit with a configured reviewer.",
+			"Use wingman when the user asks for Wingman, a second opinion, or an audit/check with a configured reviewer.",
 			"After wingman returns, synthesize accepted points, rejected points, and concrete next actions. Do not dump raw reviewer output.",
 			"After that synthesis, always stop and ask the user for confirmation before modifying files, updating plans, fixing, or continuing implementation.",
 		],
@@ -60,7 +58,6 @@ export default function wingmanExtension(pi: ExtensionAPI) {
 				reviewerHint: params.reviewerHint,
 				reviewerNames: params.reviewers,
 				targetHint: params.target,
-				maxRounds: params.maxRounds,
 				interactive: false,
 			});
 			return { content: resultContent(result), details: result };
@@ -76,7 +73,7 @@ export default function wingmanExtension(pi: ExtensionAPI) {
 			const ok = details.results.filter((item) => item.status === "ok").length;
 			const failed = details.results.filter((item) => item.status === "failed").length;
 			const cancelled = details.results.filter((item) => item.status === "cancelled").length;
-			return new Text(theme.fg(ok > 0 ? "success" : "warning", `Wingman ${ok} ok / ${failed} failed / ${cancelled} cancelled`) + theme.fg("muted", ` • ${details.mode} • ${details.targetLabel}`), 0, 0);
+			return new Text(theme.fg(ok > 0 ? "success" : "warning", `Wingman ${ok} ok / ${failed} failed / ${cancelled} cancelled`) + theme.fg("muted", ` • ${details.targetLabel}`), 0, 0);
 		},
 	});
 

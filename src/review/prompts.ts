@@ -1,49 +1,53 @@
-import type { ResolvedReviewer, WingmanContextPack, WingmanMode } from "../types.ts";
+import type { ResolvedReviewer, WingmanContextPack } from "../types.ts";
 
-export function buildReviewerSystemPrompt(mode: WingmanMode): string {
-	const base = [
+export function buildReviewerSystemPrompt(): string {
+	return [
 		"You are Wingman: an independent second-opinion reviewer for a Pi coding session.",
 		"You are not the implementer and not the source of truth.",
-		"Do not edit files. Do not tell the main agent to skip verification.",
-		"Focus on material issues that could change the user's or main agent's decision.",
+		"Do not edit files. Do not produce a full patch. Stay read-only.",
+		"Review the main agent's answer, plan, proposed change, or user question from the provided context.",
+		"Focus on correctness, risks, missed assumptions, alternatives, and whether the proposal is sound.",
+		"If the user's request names a specific angle, weight that angle heavily.",
 		"Be concrete, grounded, and concise.",
-	];
-	if (mode === "adversarial") {
-		base.push("Adversarial stance: actively try to disprove the approach. Find the strongest reasons this should not ship yet.");
-	} else if (mode === "consensus") {
-		base.push("Consensus stance: answer the decision question clearly, identify assumptions, and say what evidence would change your mind.");
-	} else if (mode === "rescue") {
-		base.push("Rescue stance: diagnose the issue and recommend the safest next move. Stay read-only unless explicitly asked otherwise by the parent.");
-	}
-	return base.join("\n");
+		"Return exactly the markdown sections requested by the user prompt. Do not add extra top-level sections.",
+	].join("\n");
 }
 
-export function buildReviewerPrompt(input: { reviewer: ResolvedReviewer; context: WingmanContextPack; round: number; previousRoundDigest?: string }): string {
-	const modeLine = input.context.mode === "consensus"
-		? "Return a clear recommendation, confidence, key assumptions, and where you agree/disagree with any prior digest."
-		: "Return findings, risks, recommendations, and strongest remaining checks.";
+export function buildReviewerPrompt(input: { reviewer: ResolvedReviewer; context: WingmanContextPack }): string {
 	return [
-		`# Wingman review request`,
+		`# Wingman second-opinion request`,
 		`Reviewer: ${input.reviewer.name} (${input.reviewer.key})`,
-		`Round: ${input.round}`,
-		`Mode: ${input.context.mode}`,
 		`Target: ${input.context.label}`,
 		"",
 		"## Instructions",
-		modeLine,
-		"Only report issues you can defend from the provided context or read-only inspection.",
-		"If the plan/change is sound, say so and name the checks that matter most.",
+		"Return an independent second opinion for the main agent and user.",
+		"Only report claims you can defend from the provided context or read-only inspection.",
+		"If the answer/proposal is sound, say so and name the checks that matter most.",
 		"Do not produce a full patch.",
 		"",
-		input.previousRoundDigest ? ["## Previous round digest", input.previousRoundDigest].join("\n") : undefined,
+		"## Required output format",
+		"Use exactly these sections:",
+		"",
+		"### Verdict",
+		"One sentence: sound / needs attention / unclear, with why.",
+		"",
+		"### What looks right",
+		"Bullets for points you agree with. Use `(none)` if nothing material.",
+		"",
+		"### Concerns or missed assumptions",
+		"Bullets for material risks, gaps, or weak assumptions. Use `(none)` if nothing material.",
+		"",
+		"### Recommended next action",
+		"Bullets with concrete next steps or checks. Keep this short.",
+		"",
 		"## Context",
 		input.context.content,
-	].filter((item): item is string => Boolean(item)).join("\n");
+	].join("\n");
 }
 
-export function buildSubagentPrompt(input: { reviewer: ResolvedReviewer; context: WingmanContextPack; round: number; previousRoundDigest?: string }): string {
+export function buildSubagentPrompt(input: { reviewer: ResolvedReviewer; context: WingmanContextPack }): string {
 	return [
-		buildReviewerSystemPrompt(input.context.mode),
+		buildReviewerSystemPrompt(),
 		"",
 		"You are running in an isolated read-only Pi worker session. Use read-only tools if needed to inspect the repository.",
 		"Do not write, edit, commit, or mutate project files.",
@@ -52,39 +56,21 @@ export function buildSubagentPrompt(input: { reviewer: ResolvedReviewer; context
 	].join("\n");
 }
 
-export function buildRoundDigest(results: Array<{ reviewer: ResolvedReviewer; output?: string; summary?: string; error?: string }>): string {
-	return results.map((result) => {
-		const body = result.summary ?? result.output ?? result.error ?? "No output.";
-		return `### ${result.reviewer.name}\n${body.slice(0, 3000)}`;
-	}).join("\n\n");
-}
-
 export function summarizeReviewerOutput(output: string): string {
 	const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-	const headings = lines.filter((line) => /^#{1,4}\s+|^(verdict|summary|recommendation|findings|risks|consensus)\b/i.test(line));
+	const headings = lines.filter((line) => /^#{1,4}\s+|^(verdict|what looks right|concerns|recommended next action)\b/i.test(line));
 	const bullets = lines.filter((line) => /^[-*]\s+|^\d+\.\s+/.test(line));
-	const selected = [...headings.slice(0, 4), ...bullets.slice(0, 6)];
-	const fallback = lines.slice(0, 8);
+	const selected = [...headings.slice(0, 6), ...bullets.slice(0, 8)];
+	const fallback = lines.slice(0, 10);
 	return (selected.length ? selected : fallback).join("\n").slice(0, 2000);
 }
 
 export function reviewerOutputSignals(output: string): { approve: boolean; concern: boolean; yes: boolean; no: boolean } {
 	const text = output.toLowerCase();
 	return {
-		approve: /\b(approve|looks\s+sound|sound\s+plan|correct|ship|no\s+blocking|no\s+material)\b/.test(text),
-		concern: /\b(needs\s+attention|block|blocking|risk|bug|issue|unsafe|do\s+not\s+ship|missing)\b/.test(text),
+		approve: /\b(approve|looks\s+sound|sound\s+plan|correct|ship|no\s+blocking|no\s+material|sound)\b/.test(text),
+		concern: /\b(needs\s+attention|block|blocking|risk|bug|issue|unsafe|do\s+not\s+ship|missing|concern)\b/.test(text),
 		yes: /\b(yes|recommend|should\s+add|do\s+it|prefer\s+adding)\b/.test(text),
 		no: /\b(no|do\s+not|avoid|should\s+not|prefer\s+not)\b/.test(text),
 	};
-}
-
-export function consensusReached(outputs: string[]): boolean {
-	if (outputs.length <= 1) return true;
-	const signals = outputs.map(reviewerOutputSignals);
-	const yes = signals.filter((signal) => signal.yes && !signal.no).length;
-	const no = signals.filter((signal) => signal.no && !signal.yes).length;
-	if (yes > 0 || no > 0) return yes === 0 || no === 0;
-	const approve = signals.filter((signal) => signal.approve && !signal.concern).length;
-	const concern = signals.filter((signal) => signal.concern && !signal.approve).length;
-	return approve === 0 || concern === 0;
 }

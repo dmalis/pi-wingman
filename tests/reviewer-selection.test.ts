@@ -19,7 +19,6 @@ function config(exclude: WingmanConfig["exclude"]): WingmanConfig {
 		version: 1,
 		exclude,
 		defaultReviewers: "all-eligible",
-		maxRounds: 3,
 		maxParallelReviewers: 4,
 		logging: { enabled: false, raw: false },
 		reviewers: [

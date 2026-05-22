@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import type { WingmanContextPack, WingmanMode, WingmanTarget } from "../types.ts";
+import type { WingmanContextPack, WingmanTarget } from "../types.ts";
 import { collectBranchContext, collectWorkingTreeContext, getGitState, type ExecLike } from "./git-context.ts";
-import { extractLatestQuestion, getLastAssistantText, getRecentConversation, looksLikePlan, summarizePlan, type SessionLike } from "./session-context.ts";
+import { getLastAssistantText, getRecentConversation, looksLikePlan, summarizePlan, type SessionLike } from "./session-context.ts";
 
 const MAX_FILE_BYTES = 64 * 1024;
 const MAX_RECENT_CONVERSATION = 24_000;
@@ -15,14 +15,6 @@ function bound(text: string, limit: number): string {
 
 function section(title: string, body: string): string {
 	return [`## ${title}`, "", body.trim() || "(none)", ""].join("\n");
-}
-
-function parseMode(request: string): WingmanMode {
-	const value = request.toLowerCase();
-	if (/\b(consensus|decide|choose|alignment|agree)\b/.test(value)) return "consensus";
-	if (/\b(adversarial|challenge|pressure[-\s]*test|prove\s+.*wrong|break\s+confidence)\b/.test(value)) return "adversarial";
-	if (/\b(rescue|stuck|debug|root[-\s]*cause|investigate)\b/.test(value)) return "rescue";
-	return "audit";
 }
 
 function parseExplicitTarget(request: string): WingmanTarget | undefined {
@@ -41,7 +33,6 @@ function parseExplicitTarget(request: string): WingmanTarget | undefined {
 
 function targetLabel(target: WingmanTarget): string {
 	switch (target.type) {
-		case "question-consensus": return "latest decision question";
 		case "current-plan": return "current plan";
 		case "working-tree": return "working tree changes";
 		case "branch-diff": return `branch diff against ${target.base}`;
@@ -80,7 +71,6 @@ export async function inferWingmanContext(input: {
 }): Promise<WingmanContextPack> {
 	const exec = input.pi.exec.bind(input.pi) as ExecLike;
 	const request = input.request.trim();
-	const mode = parseMode(request);
 	const lastAssistant = getLastAssistantText(input.session);
 	const recentConversation = bound(getRecentConversation(input.session, 8), MAX_RECENT_CONVERSATION);
 	const explicit = parseExplicitTarget(request);
@@ -90,10 +80,6 @@ export async function inferWingmanContext(input: {
 
 	let target: WingmanTarget | undefined = explicit;
 	let reason = explicit ? "explicit target in request" : "smart inference";
-	if (!target && mode === "consensus") {
-		const question = extractLatestQuestion(lastAssistant);
-		if (question) target = { type: "question-consensus", question, confidence: "high" };
-	}
 	if (!target && planRequest && looksLikePlan(lastAssistant)) {
 		target = { type: "current-plan", text: summarizePlan(lastAssistant ?? ""), confidence: "high" };
 	}
@@ -105,9 +91,6 @@ export async function inferWingmanContext(input: {
 	}
 	if (!target && genericRequest && git.isRepo && git.branch && git.defaultBranch && git.branch !== git.defaultBranch) {
 		target = { type: "branch-diff", base: git.defaultBranch, confidence: "medium" };
-	}
-	if (!target && genericRequest && lastAssistant) {
-		target = { type: "last-turn", text: bound(lastAssistant, 16000), confidence: "medium" };
 	}
 	if (!target && lastAssistant) {
 		target = { type: "last-turn", text: bound(lastAssistant, 16000), confidence: "medium" };
@@ -130,8 +113,6 @@ export async function inferWingmanContext(input: {
 		targetContent = await collectFileContext(input.cwd, target.paths);
 	} else if (target.type === "current-plan") {
 		targetContent = section("Plan", target.text);
-	} else if (target.type === "question-consensus") {
-		targetContent = section("Question", target.question);
 	} else if (target.type === "last-turn") {
 		targetContent = section("Latest Assistant Turn", target.text);
 	} else if (target.type === "commit" && git.isRepo) {
@@ -144,24 +125,21 @@ export async function inferWingmanContext(input: {
 
 	const label = targetLabel(target);
 	const focus = request || label;
-	const contentParts = [
+	const content = [
 		"# Wingman context pack",
 		`CWD: ${git.root || input.cwd}`,
 		`Target: ${label}`,
-		`Mode: ${mode}`,
 		`Inference: ${reason}; confidence ${target.confidence}`,
 		"",
 		section("User Request", request || "(no explicit request)"),
-	];
-	if (target.type !== "freeform") contentParts.push(section("Recent Conversation", recentConversation));
-	contentParts.push(section("Target Context", targetContent));
-	const content = contentParts.join("\n");
+		section("Recent Conversation", recentConversation),
+		section("Target Context", targetContent),
+	].join("\n");
 
 	return {
 		target,
 		label,
 		focus,
-		mode,
 		cwd: git.root || input.cwd,
 		content,
 		backend: large ? "subagent" : "direct",
@@ -169,4 +147,4 @@ export async function inferWingmanContext(input: {
 	};
 }
 
-export { targetLabel, parseMode };
+export { targetLabel };

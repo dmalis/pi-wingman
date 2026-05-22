@@ -3,7 +3,7 @@ import type { ReviewerResult, WingmanRunResult } from "../types.ts";
 function statusLine(result: ReviewerResult): string {
 	const icon = result.status === "ok" ? "[ok]" : result.status === "failed" ? "[failed]" : "[cancelled]";
 	const detail = result.status === "ok" ? "returned review output" : result.error ?? result.status;
-	return `- ${icon} ${result.reviewer.name} (${result.reviewer.key}, ${result.backend}, round ${result.round}): ${detail}`;
+	return `- ${icon} ${result.reviewer.name} (${result.reviewer.key}, ${result.backend}): ${detail}`;
 }
 
 export function formatWingmanRunResult(input: Omit<WingmanRunResult, "text">): string {
@@ -15,9 +15,7 @@ export function formatWingmanRunResult(input: Omit<WingmanRunResult, "text">): s
 	const latest = Array.from(latestOk.values());
 	return [
 		`Wingman complete: ${ok.length} ok / ${failed.length} failed / ${cancelled.length} cancelled`,
-		`Mode: ${input.mode}`,
-		`Target: ${input.targetLabel}`,
-		`Rounds: ${input.rounds}${input.cancelled ? " (cancelled)" : ""}`,
+		`Target: ${input.targetLabel}${input.cancelled ? " (cancelled)" : ""}`,
 		"",
 		"Reviewer status:",
 		...input.results.map(statusLine),

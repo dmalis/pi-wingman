@@ -42,7 +42,7 @@ export async function showRunPreflight(ctx: { hasUI?: boolean; ui: any }, input:
 				const add = (line = "") => lines.push(truncateToWidth(line, width));
 				const border = theme.fg("accent", "─".repeat(width));
 				add(border);
-				add(theme.fg("accent", theme.bold(" Wingman")) + theme.fg("dim", `  ${input.context.mode} • ${input.context.label}`));
+				add(theme.fg("accent", theme.bold(" Wingman")) + theme.fg("dim", `  ${input.context.label}`));
 				add(theme.fg("muted", ` Backend ${input.context.backend} • Target confidence ${input.context.target.confidence}`));
 				add();
 				add(theme.fg("text", " What should Wingman check in this conversation?"));

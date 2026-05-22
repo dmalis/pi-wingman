@@ -1,21 +1,21 @@
 # pi-wingman
 
-A standalone [Pi](https://pi.dev) extension for asking independent reviewer models to audit your current work.
+A standalone [Pi](https://pi.dev) extension for asking independent reviewer models for a second opinion.
 
 Wingman lets your active coding model ask configured reviewer models for a second opinion, then passes the result back to the main agent for synthesis. The main agent summarizes what it accepts, what it rejects, and what it recommends next — then stops and waits for your confirmation.
 
 ## Features
 
-- `/wingman` smart audit command
+- `/wingman` smart second-opinion command
 - `/wingman setup` project-local guided setup wizard
 - Native Pi TUI model picker with checkbox selection
 - Configured reviewers only — no model guessing or hidden fallbacks
 - Current model/provider exclusion policy
 - Parallel reviewer execution with cancellable progress UI
-- Smart target inference for plans, questions, diffs, branches, files, and recent conversation context
+- Smart target inference for current answers, plans, diffs, branches, files, and recent conversation context
 - Hybrid execution:
-  - direct model calls for focused plan/question audits
-  - clean read-only Pi subagents for larger repo/diff audits
+  - direct model calls for focused conversation/plan reviews
+  - clean read-only Pi subagents for larger repo/diff reviews
 - Optional project-local JSONL logging
 
 ## Install
@@ -54,7 +54,7 @@ The setup wizard lets you:
 - optionally edit reviewer aliases
 - choose the exclusion policy
 - choose default reviewer behavior
-- configure advanced logging and consensus round settings
+- configure optional logging
 
 Project config is stored in:
 
@@ -70,8 +70,7 @@ This file contains only reviewer aliases and provider/model IDs. It does not con
 /wingman
 /wingman setup
 /wingman audit this plan
-/wingman codex find consensus
-/wingman challenge the auth design
+/wingman codex check this plan
 /wingman review working tree changes
 ```
 
@@ -122,7 +121,6 @@ The main agent should then stop and wait for confirmation before changing files,
   "version": 1,
   "exclude": "same-provider",
   "defaultReviewers": "all-eligible",
-  "maxRounds": 3,
   "maxParallelReviewers": 4,
   "logging": {
     "enabled": false,

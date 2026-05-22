@@ -1,15 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { inferWingmanContext, parseMode } from "../src/target/infer-target.ts";
-
-function nonRepoPi() {
-	return {
-		exec: async (command: string, args: string[]) => {
-			if (command === "git" && args[0] === "rev-parse") return { code: 1, stdout: "", stderr: "not repo" };
-			return { code: 1, stdout: "", stderr: "" };
-		},
-	} as any;
-}
+import { inferWingmanContext } from "../src/target/infer-target.ts";
 
 function repoPi(status = "", branch = "feature", defaultBranch = "main") {
 	return {
@@ -28,18 +19,6 @@ function repoPi(status = "", branch = "feature", defaultBranch = "main") {
 function session(assistantText: string) {
 	return { getBranch: () => [{ message: { role: "assistant", content: [{ type: "text", text: assistantText }] } }] } as any;
 }
-
-test("mode parsing detects consensus/adversarial/rescue/audit", () => {
-	assert.equal(parseMode("find consensus"), "consensus");
-	assert.equal(parseMode("pressure-test this"), "adversarial");
-	assert.equal(parseMode("debug why stuck"), "rescue");
-	assert.equal(parseMode("audit this"), "audit");
-});
-
-test("target inference prefers latest decision question for consensus", async () => {
-	const context = await inferWingmanContext({ pi: nonRepoPi(), cwd: "/tmp", request: "find consensus", session: session("Implementation plan\n1. implement\n2. test\nShould we add the API layer?") });
-	assert.equal(context.target.type, "question-consensus");
-});
 
 test("target inference detects current plan before git state", async () => {
 	const context = await inferWingmanContext({ pi: repoPi(" M src/file.ts\n"), cwd: "/repo", request: "audit plan", session: session("Implementation plan\n1. implement change\n2. test it\n3. verify behavior") });

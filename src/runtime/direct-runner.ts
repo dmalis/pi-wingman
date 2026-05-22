@@ -14,8 +14,6 @@ export async function runDirectReviewer(input: {
 	ctx: DirectRunnerContext;
 	reviewer: ResolvedReviewer;
 	context: WingmanContextPack;
-	round: number;
-	previousRoundDigest?: string;
 }): Promise<ReviewerResult> {
 	const prompt = buildReviewerPrompt(input);
 	try {
@@ -24,7 +22,7 @@ export async function runDirectReviewer(input: {
 		if (!auth.apiKey && !auth.headers) throw new Error(`No auth configured for ${input.reviewer.key}.`);
 		const messages: Message[] = [{ role: "user", content: [{ type: "text", text: prompt }], timestamp: Date.now() }];
 		const response = await complete(input.reviewer.modelRef, {
-			systemPrompt: buildReviewerSystemPrompt(input.context.mode),
+			systemPrompt: buildReviewerSystemPrompt(),
 			messages,
 		}, {
 			apiKey: auth.apiKey,
@@ -34,13 +32,13 @@ export async function runDirectReviewer(input: {
 			reasoningEffort: input.reviewer.thinking,
 			reasoning: input.reviewer.thinking,
 		});
-		if (response.stopReason === "aborted") return { reviewer: input.reviewer, status: "cancelled", round: input.round, backend: "direct", prompt, error: "aborted" };
+		if (response.stopReason === "aborted") return { reviewer: input.reviewer, status: "cancelled", backend: "direct", prompt, error: "aborted" };
 		if (response.stopReason === "error") throw new Error(response.errorMessage || "model returned an error");
 		const output = response.content.filter((part): part is { type: "text"; text: string } => part.type === "text").map((part) => part.text).join("\n").trim();
 		if (!output) throw new Error("reviewer returned no text output");
-		return { reviewer: input.reviewer, status: "ok", round: input.round, backend: "direct", prompt, output, summary: summarizeReviewerOutput(output) };
+		return { reviewer: input.reviewer, status: "ok", backend: "direct", prompt, output, summary: summarizeReviewerOutput(output) };
 	} catch (error) {
-		if (input.ctx.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", round: input.round, backend: "direct", prompt, error: "aborted" };
-		return { reviewer: input.reviewer, status: "failed", round: input.round, backend: "direct", prompt, error: error instanceof Error ? error.message : String(error) };
+		if (input.ctx.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", backend: "direct", prompt, error: "aborted" };
+		return { reviewer: input.reviewer, status: "failed", backend: "direct", prompt, error: error instanceof Error ? error.message : String(error) };
 	}
 }

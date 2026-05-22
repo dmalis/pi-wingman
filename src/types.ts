@@ -2,7 +2,6 @@ import type { Model, ModelThinkingLevel } from "@earendil-works/pi-ai";
 
 export type ExclusionPolicy = "same-model" | "same-provider";
 export type DefaultReviewers = "all-eligible" | "ask";
-export type WingmanMode = "audit" | "adversarial" | "consensus" | "rescue";
 export type ReviewerStatus = "pending" | "running" | "ok" | "failed" | "cancelled";
 export type WingmanBackend = "direct" | "subagent";
 
@@ -22,7 +21,6 @@ export type WingmanConfig = {
 	version: 1;
 	exclude: ExclusionPolicy;
 	defaultReviewers: DefaultReviewers;
-	maxRounds: number;
 	maxParallelReviewers: number;
 	logging: WingmanLoggingConfig;
 	reviewers: WingmanReviewerConfig[];
@@ -37,7 +35,6 @@ export type ResolvedReviewer = WingmanReviewerConfig & {
 };
 
 export type WingmanTarget =
-	| { type: "question-consensus"; question: string; confidence: "high" | "medium" | "low" }
 	| { type: "current-plan"; text: string; confidence: "high" | "medium" | "low" }
 	| { type: "working-tree"; confidence: "high" | "medium" | "low" }
 	| { type: "branch-diff"; base: string; confidence: "high" | "medium" | "low" }
@@ -50,7 +47,6 @@ export type WingmanContextPack = {
 	target: WingmanTarget;
 	label: string;
 	focus: string;
-	mode: WingmanMode;
 	cwd: string;
 	content: string;
 	backend: WingmanBackend;
@@ -60,7 +56,6 @@ export type WingmanContextPack = {
 export type ReviewerProgress = {
 	reviewer: ResolvedReviewer;
 	status: ReviewerStatus;
-	round: number;
 	summary?: string;
 	error?: string;
 };
@@ -68,7 +63,6 @@ export type ReviewerProgress = {
 export type ReviewerResult = {
 	reviewer: ResolvedReviewer;
 	status: Exclude<ReviewerStatus, "pending" | "running">;
-	round: number;
 	backend: WingmanBackend;
 	prompt: string;
 	output?: string;
@@ -81,16 +75,13 @@ export type WingmanRunInput = {
 	reviewerHint?: string;
 	reviewerNames?: string[];
 	targetHint?: string;
-	maxRounds?: number;
 	interactive?: boolean;
 };
 
 export type WingmanRunResult = {
 	request: string;
-	mode: WingmanMode;
 	target: WingmanTarget;
 	targetLabel: string;
-	rounds: number;
 	cancelled: boolean;
 	results: ReviewerResult[];
 	text: string;

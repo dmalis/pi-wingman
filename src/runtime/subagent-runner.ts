@@ -37,8 +37,6 @@ function finalAssistantText(session: { sessionManager?: { getBranch?: () => unkn
 export async function runSubagentReviewer(input: {
 	reviewer: ResolvedReviewer;
 	context: WingmanContextPack;
-	round: number;
-	previousRoundDigest?: string;
 	signal?: AbortSignal;
 }): Promise<ReviewerResult> {
 	const prompt = buildSubagentPrompt(input);
@@ -51,7 +49,7 @@ export async function runSubagentReviewer(input: {
 			tools,
 			resourceLoader: createCleanResourceLoader(),
 		});
-		if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", round: input.round, backend: "subagent", prompt, error: "aborted" };
+		if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", backend: "subagent", prompt, error: "aborted" };
 		const abort = () => session.abort?.();
 		input.signal?.addEventListener("abort", abort, { once: true });
 		try {
@@ -59,12 +57,12 @@ export async function runSubagentReviewer(input: {
 		} finally {
 			input.signal?.removeEventListener("abort", abort);
 		}
-		if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", round: input.round, backend: "subagent", prompt, error: "aborted" };
+		if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", backend: "subagent", prompt, error: "aborted" };
 		const output = finalAssistantText(session).trim();
 		if (!output) throw new Error("subagent returned no assistant text");
-		return { reviewer: input.reviewer, status: "ok", round: input.round, backend: "subagent", prompt, output, summary: summarizeReviewerOutput(output) };
+		return { reviewer: input.reviewer, status: "ok", backend: "subagent", prompt, output, summary: summarizeReviewerOutput(output) };
 	} catch (error) {
-		if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", round: input.round, backend: "subagent", prompt, error: "aborted" };
-		return { reviewer: input.reviewer, status: "failed", round: input.round, backend: "subagent", prompt, error: error instanceof Error ? error.message : String(error) };
+		if (input.signal?.aborted) return { reviewer: input.reviewer, status: "cancelled", backend: "subagent", prompt, error: "aborted" };
+		return { reviewer: input.reviewer, status: "failed", backend: "subagent", prompt, error: error instanceof Error ? error.message : String(error) };
 	}
 }

@@ -17,14 +17,14 @@ function statusIcon(status: ReviewerStatus): string {
 	}
 }
 
-export async function withRunningProgress<T>(ctx: { hasUI?: boolean; ui: any }, input: { context: WingmanContextPack; reviewers: ResolvedReviewer[]; maxRounds: number }, run: (handle: ProgressHandle) => Promise<T>): Promise<T> {
+export async function withRunningProgress<T>(ctx: { hasUI?: boolean; ui: any }, input: { context: WingmanContextPack; reviewers: ResolvedReviewer[] }, run: (handle: ProgressHandle) => Promise<T>): Promise<T> {
 	const controller = new AbortController();
 	if (!ctx.hasUI) {
 		return run({ signal: controller.signal, update: () => undefined, finish: (value) => value });
 	}
 	const result = await ctx.ui.custom((tui: any, theme: any, _kb: any, done: (value: T | { __wingmanError: string }) => void) => {
 		const statuses = new Map<string, ReviewerProgress>();
-		for (const reviewer of input.reviewers) statuses.set(reviewer.key, { reviewer, status: "pending", round: 1 });
+		for (const reviewer of input.reviewers) statuses.set(reviewer.key, { reviewer, status: "pending" });
 		let cachedLines: string[] | undefined;
 		let finished = false;
 		function requestRender() { cachedLines = undefined; tui.requestRender(); }
@@ -58,14 +58,14 @@ export async function withRunningProgress<T>(ctx: { hasUI?: boolean; ui: any }, 
 			const add = (line = "") => lines.push(truncateToWidth(line, width));
 			const border = theme.fg("accent", "─".repeat(width));
 			add(border);
-			add(theme.fg("accent", theme.bold(" Wingman running")) + theme.fg("dim", `  ${input.context.mode} • ${input.context.label}`));
-			add(theme.fg("muted", ` Backend ${input.context.backend} • Max rounds ${input.maxRounds}`));
+			add(theme.fg("accent", theme.bold(" Wingman running")) + theme.fg("dim", `  ${input.context.label}`));
+			add(theme.fg("muted", ` Backend ${input.context.backend}`));
 			add();
 			for (const progress of statuses.values()) {
 				const icon = statusIcon(progress.status);
 				const color = progress.status === "ok" ? "success" : progress.status === "failed" ? "error" : progress.status === "cancelled" ? "warning" : progress.status === "running" ? "accent" : "muted";
 				const detail = progress.error ?? progress.summary?.replace(/\s+/g, " ").slice(0, 80) ?? progress.status;
-				add(theme.fg(color, ` ${icon} ${progress.reviewer.name.padEnd(12)} round ${progress.round}: ${detail}`));
+				add(theme.fg(color, ` ${icon} ${progress.reviewer.name.padEnd(12)} ${detail}`));
 			}
 			add();
 			add(theme.fg("dim", controller.signal.aborted ? " Cancelling... completed reviewer output will be preserved" : " Esc cancel remaining reviewers"));
